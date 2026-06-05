@@ -572,7 +572,7 @@
           <h1>Agent Utilization Dashboard</h1>
         </div>
         <div class="header-meta">
-          <div class="pill admin-pill">Neel Sharma | Admin</div>
+          <div class="pill admin-pill" id="userPill">Loading...</div>
           <button type="button" class="pill active" id="navDashboard">Dashboard</button>
           <button type="button" class="pill" id="bulkButton">Bulk Upload</button>
           <button type="button" class="pill" id="attendanceButton">Attendance</button>
@@ -849,18 +849,20 @@
 
     <div id="centerToast" class="center-toast" role="status" aria-live="polite"></div>
 
+
     <script>
       const COLORS = ["#22787f","#2e6f9e","#1b7f4f","#b7791f","#7c5cc4","#d05858","#4f8f6d","#5e7ce2","#a86834","#5c9ead","#7a6f59","#4a9f8f","#9467bd"];
       const TEAM_BUTTON_COLORS = ["#065f3f","#263b7a","#6d3f13"];
       const KRA_TARGET_PER_DAY = 45;
-      const WORKDAY_HOURS = 8;
-      const TARGET_UTIL = 0.85;
+      const TEAMS = ["FDR CBP Team", "FDR Uncleared & ASTNC Team", "JGW Team"];
 
       function profile(name, employeeId, email, designation, process, lead) {
         return { name, employeeId, email, designation, process, lead: lead || "" };
       }
       function task(id, name, aht) { return { id, name, aht }; }
 
+      // Baked data — used ONLY as a local-preview fallback when this file is
+      // opened directly in a browser (no Google Apps Script backend present).
       const TEAM_DATA = {
         "FDR CBP Team": {
           agentProfiles: [
@@ -951,7 +953,6 @@
         },
       };
 
-      // Sample utilization rows per team (preview)
       const SAMPLE_UTIL = {
         "JGW Team": [
           { agent: "Sachin Sharma", totalVolume: 210, productiveHours: 54, entryDays: 7, utilization: 0.96 },
@@ -995,10 +996,10 @@
         ],
       };
 
-      const COMPARE_DATA = {
-        "FDR CBP Team": { volume: 2840, hours: 612, util: 0.78, kraRating: 3.6, targetMet: 0.65 },
-        "FDR Uncleared & ASTNC Team": { volume: 1920, hours: 488, util: 0.71, kraRating: 3.2, targetMet: 0.55 },
-        "JGW Team": { volume: 1275, hours: 332, util: 0.80, kraRating: 3.7, targetMet: 0.72 },
+      const COMPARE_PREVIEW = {
+        "FDR CBP Team": { totalVolume: 2840, productiveHours: 612, avgUtilization: 0.78, avgRating: 3.6, targetMetPct: 0.65 },
+        "FDR Uncleared & ASTNC Team": { totalVolume: 1920, productiveHours: 488, avgUtilization: 0.71, avgRating: 3.2, targetMetPct: 0.55 },
+        "JGW Team": { totalVolume: 1275, productiveHours: 332, avgUtilization: 0.80, avgRating: 3.7, targetMetPct: 0.72 },
       };
 
       const FDR_CBP_SECTIONS = [
@@ -1017,9 +1018,13 @@
         { min: 20, max: 25, label: "Other Tasks", color: "#374151", isOther: true },
       ];
 
-      const TEAMS = ["FDR CBP Team", "FDR Uncleared & ASTNC Team", "JGW Team"];
-
       const state = {
+        localPreview: false,
+        teams: [],
+        teamData: {},
+        access: { email: "", isAdmin: false, teamAccess: {} },
+        workdayHours: 8,
+        targetUtilization: 0.85,
         tasks: [],
         agentProfiles: [],
         selectedTeam: "",
@@ -1036,47 +1041,101 @@
       };
 
       const el = (id) => document.getElementById(id);
-
       function todayISO() { return new Date().toISOString().slice(0, 10); }
       function monthISO() { return new Date().toISOString().slice(0, 7); }
 
+      // ---------- Init / data layer ----------
       function init() {
-        renderTeamButtons();
-        el("workDate").value = todayISO();
-        el("dailyDatePicker").value = todayISO();
-        el("monthPicker").value = monthISO();
-        el("kraMonthPicker").value = monthISO();
-        el("bulkMonthPicker").value = monthISO();
-        el("attMonthPicker").value = monthISO();
-        el("loading").hidden = true;
-        el("teamChooser").hidden = false;
-        calculate();
         bindEvents();
+        if (!window.google || !google.script || !google.script.run) { loadPreview(); return; }
+        state.localPreview = false;
+        google.script.run
+          .withSuccessHandler((data) => loadAppData(data))
+          .withFailureHandler((err) => { loadPreview(); showMessage((err && err.message) || "Could not reach Google Sheets; showing local preview.", "bad"); })
+          .getAppData();
       }
 
-      function renderTeamButtons() {
-        el("teamButtons").innerHTML = TEAMS.map((team, i) =>
-          `<button type="button" class="team-button" data-team="${escapeHtml(team)}" style="--team-color:${TEAM_BUTTON_COLORS[i]}">${escapeHtml(team)}</button>`
-        ).join("");
-        el("teamButtons").querySelectorAll("button[data-team]").forEach((b) => {
-          b.addEventListener("click", () => selectTeam(b.dataset.team));
+      function loadPreview() {
+        state.localPreview = true;
+        const teamData = {};
+        TEAMS.forEach((t) => { teamData[t] = { agents: TEAM_DATA[t].agentProfiles.map((p) => p.name), agentProfiles: TEAM_DATA[t].agentProfiles, tasks: TEAM_DATA[t].tasks }; });
+        loadAppData({
+          teams: TEAMS, teamData,
+          access: { email: "preview@local", isAdmin: true, teamAccess: Object.fromEntries(TEAMS.map((t) => [t, { canViewAllAgents: true, agents: teamData[t].agents }])) },
+          workdayHours: 8, targetUtilization: 0.85, today: todayISO(), month: monthISO(),
         });
+        showMessage("Local preview — deploy to Google Apps Script to save into Google Sheets.", "");
+      }
+
+      function loadAppData(data) {
+        state.teams = data.teams || [];
+        state.teamData = data.teamData || {};
+        state.access = data.access || { email: "", isAdmin: false, teamAccess: {} };
+        state.workdayHours = data.workdayHours || 8;
+        state.targetUtilization = data.targetUtilization || 0.85;
+        renderTeamButtons(state.teams);
+        el("workDate").value = data.today || todayISO();
+        el("dailyDatePicker").value = data.today || todayISO();
+        el("monthPicker").value = data.month || monthISO();
+        el("kraMonthPicker").value = el("monthPicker").value;
+        el("bulkMonthPicker").value = el("monthPicker").value;
+        el("attMonthPicker").value = el("monthPicker").value;
+        el("loading").hidden = true;
+        el("teamChooser").hidden = false;
+        updateAccessUi();
+        if (!state.teams.length) {
+          el("teamChooser").innerHTML = `<h2>No team access found</h2><p>Open the portal with your PRTH Google account. If this persists, ask the admin to confirm your email in the Agents sheet.</p>`;
+        }
+        calculate();
+      }
+
+      function updateAccessUi() {
+        const a = state.access || {};
+        const role = a.isAdmin ? "Admin" : (anyLead() ? "Team Lead" : "Agent");
+        el("userPill").textContent = `${a.email || "Guest"} · ${role}`;
+        el("compareButton").hidden = !a.isAdmin;
+      }
+      function anyLead() {
+        const t = state.access && state.access.teamAccess;
+        return t ? Object.keys(t).some((k) => t[k].canViewAllAgents) : false;
+      }
+      function canUseAllView() {
+        return Boolean(state.access && state.access.teamAccess && state.access.teamAccess[state.selectedTeam] && state.access.teamAccess[state.selectedTeam].canViewAllAgents);
+      }
+      function updateBulkAccess() {
+        const can = canUseAllView();
+        el("bulkButton").hidden = !can;
+        el("kraEntryPanel").hidden = !can;
+      }
+
+      function renderTeamButtons(teams) {
+        el("teamButtons").innerHTML = (teams || []).map((team) => {
+          const i = Math.max(0, TEAMS.indexOf(team));
+          return `<button type="button" class="team-button" data-team="${escapeHtml(team)}" style="--team-color:${TEAM_BUTTON_COLORS[i % TEAM_BUTTON_COLORS.length]}">${escapeHtml(team)}</button>`;
+        }).join("");
+        el("teamButtons").querySelectorAll("button[data-team]").forEach((b) => b.addEventListener("click", () => selectTeam(b.dataset.team)));
+      }
+
+      function normalizeProfiles(td) {
+        if (td.agentProfiles && td.agentProfiles.length) return td.agentProfiles;
+        return (td.agents || []).map((name) => ({ name, employeeId: "", email: "", designation: "", process: name.includes("(Team Lead)") ? "Team Lead" : "Agents", lead: "" }));
       }
 
       function selectTeam(team) {
+        const td = state.teamData[team];
+        if (!td) { showMessage("You do not have access to this team.", "bad"); return; }
         state.selectedTeam = team;
-        state.tasks = TEAM_DATA[team].tasks;
-        state.agentProfiles = TEAM_DATA[team].agentProfiles;
+        state.tasks = td.tasks || [];
+        state.agentProfiles = normalizeProfiles(td);
         state.dashboardView = "mine";
         state.kraAgentMode = "all";
         state.kraAgentName = "";
-        state.currentDashboard = buildDashboard(team);
-        state.currentKraDashboard = buildKraDashboard(team);
-        state.agentSearch = "";
-        state.statusFilterValue = "";
-        el("agentSearch").value = "";
-        el("statusFilter").value = "";
+        state.agentSearch = ""; state.statusFilterValue = ""; state.kraSearch = ""; state.kraStatusFilterValue = "";
+        el("agentSearch").value = ""; el("statusFilter").value = ""; el("kraSearch").value = ""; el("kraStatusFilter").value = "";
+        state.currentDashboard = emptyDashboard();
+        state.currentKraDashboard = state.localPreview ? buildKraDashboard(team) : emptyKraDashboard();
         renderAgents(state.agentProfiles);
+        if (state.agentProfiles.length === 1) { el("agent").value = state.agentProfiles[0].name; renderAgentProfile(); }
         renderKraAgentPicker();
         renderTasks(state.tasks);
         el("entryTeamName").textContent = team;
@@ -1084,67 +1143,51 @@
         el("kraPageTeamName").textContent = team;
         el("bulkTeamName").textContent = team;
         el("attTeamName").textContent = team;
-        el("teamButtons").querySelectorAll("button[data-team]").forEach((b) => {
-          b.classList.toggle("active", b.dataset.team === team);
-        });
+        el("teamButtons").querySelectorAll("button[data-team]").forEach((b) => b.classList.toggle("active", b.dataset.team === team));
         showSection("app");
+        showMessage("", "");
         clearEntryFields();
+        updateBulkAccess();
         updateDashboardViewButtons();
         renderDashboard(state.currentDashboard);
+        refreshDashboard();
       }
 
       function buildDashboard(team) {
         const rows = (SAMPLE_UTIL[team] || []).map((r) => ({ ...r, status: getStatus(r.totalVolume, r.utilization) }));
-        const daily = rows.map((r) => ({
-          agent: r.agent,
-          totalVolume: Math.round(r.totalVolume / Math.max(r.entryDays, 1)),
-          productiveHours: +(r.productiveHours / Math.max(r.entryDays, 1)).toFixed(1),
-          entryDays: r.entryDays > 0 ? 1 : 0,
-          utilization: r.utilization,
-          status: r.status,
-        }));
+        const daily = rows.map((r) => ({ agent: r.agent, totalVolume: Math.round(r.totalVolume / Math.max(r.entryDays, 1)), productiveHours: +(r.productiveHours / Math.max(r.entryDays, 1)).toFixed(1), entryDays: r.entryDays > 0 ? 1 : 0, utilization: r.utilization, status: r.status }));
         return { team, agents: rows, dailyAgents: daily };
       }
-
       function buildKraDashboard(team) {
-        const agents = (SAMPLE_KRA[team] || []).map((a) => ({ ...a }));
-        return { team, month: el("kraMonthPicker").value, workingDays: 22, target: 900, agents };
+        return { team, month: el("kraMonthPicker").value, workingDays: 22, target: 900, agents: (SAMPLE_KRA[team] || []).map((a) => ({ ...a })) };
       }
+      function emptyDashboard() { return { agents: [], dailyAgents: [] }; }
+      function emptyKraDashboard() { return { team: state.selectedTeam, month: el("kraMonthPicker").value, workingDays: 0, target: 0, agents: [] }; }
 
       // ---------- Navigation ----------
       function showSection(name) {
-        ["app", "bulkPage", "attendancePage", "comparePage", "kraPage"].forEach((s) => {
-          const node = el(s);
-          if (node) node.hidden = (s !== name);
-        });
+        ["app", "bulkPage", "attendancePage", "comparePage", "kraPage"].forEach((s) => { const n = el(s); if (n) n.hidden = (s !== name); });
         el("teamChooser").hidden = (name === "kraPage" || name === "comparePage");
         const navMap = { app: "navDashboard", bulkPage: "bulkButton", attendancePage: "attendanceButton", comparePage: "compareButton", kraPage: "kraButton" };
         document.querySelectorAll(".header-meta .pill").forEach((p) => p.classList.remove("active"));
-        if (navMap[name]) el(navMap[name]).classList.add("active");
+        if (navMap[name] && el(navMap[name])) el(navMap[name]).classList.add("active");
+        if (name === "kraPage") updateBulkAccess();
       }
-
       function requireTeam() {
         if (!state.selectedTeam) { showMessage("Please select a team first.", "bad"); return false; }
         return true;
       }
 
-      // ---------- Agents / Profile ----------
+      // ---------- Agents / profile ----------
       function renderAgents(profiles) {
         const groups = {};
-        profiles.forEach((p) => {
-          const g = p.lead ? `${p.lead} Team` : (p.process || "Agents");
-          (groups[g] = groups[g] || []).push(p);
-        });
+        profiles.forEach((p) => { const g = p.lead ? `${p.lead} Team` : (p.process || "Agents"); (groups[g] = groups[g] || []).push(p); });
         el("agent").innerHTML = ['<option value="">Select agent</option>']
-          .concat(Object.keys(groups).map((g) =>
-            `<optgroup label="${escapeHtml(g)}">${groups[g].map((p) => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join("")}</optgroup>`
-          )).join("");
+          .concat(Object.keys(groups).map((g) => `<optgroup label="${escapeHtml(g)}">${groups[g].map((p) => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join("")}</optgroup>`)).join("");
         renderAgentProfile();
       }
-
       function renderAgentProfile() {
-        const sel = el("agent").value;
-        const p = state.agentProfiles.find((x) => x.name === sel);
+        const p = state.agentProfiles.find((x) => x.name === el("agent").value);
         if (!p) { el("agentProfile").hidden = true; el("agentProfile").innerHTML = ""; return; }
         el("agentProfile").hidden = false;
         el("agentProfile").innerHTML = `
@@ -1156,78 +1199,47 @@
         el("submittedBy").value = p.email || "";
       }
 
-      // ---------- Task rendering ----------
+      // ---------- Tasks ----------
       function renderTasks(tasks) {
-        if (!tasks.length) { el("taskRows").innerHTML = `<div class="loading">No tasks configured.</div>`; return; }
+        if (!tasks.length) { el("taskRows").innerHTML = `<div class="loading">This team has no tasks configured yet.</div>`; return; }
         let n = 1;
-        const rows = getTaskGroups(tasks).map((g) =>
-          `<div class="section-row" style="--section-color:${g.color}">${escapeHtml(g.label)}</div>` +
-          g.tasks.map((t) => renderTaskRow(t, n++)).join("")
-        ).join("");
-        el("taskRows").innerHTML = `
-          <div class="entry-grid">
-            <div class="entry-grid-head"><div>Task</div><div>Task Name</div><div>AHT</div><div>Count</div><div>Comment</div></div>
-            ${rows}
-          </div>`;
-        el("taskRows").querySelectorAll("input").forEach((input) => {
-          input.value = "";
-          input.addEventListener("input", () => { input.value = input.value.replace(/\D/g, ""); calculate(); });
-        });
+        const rows = getTaskGroups(tasks).map((g) => `<div class="section-row" style="--section-color:${g.color}">${escapeHtml(g.label)}</div>` + g.tasks.map((t) => renderTaskRow(t, n++)).join("")).join("");
+        el("taskRows").innerHTML = `<div class="entry-grid"><div class="entry-grid-head"><div>Task</div><div>Task Name</div><div>AHT</div><div>Count</div><div>Comment</div></div>${rows}</div>`;
+        el("taskRows").querySelectorAll("input").forEach((input) => { input.value = ""; input.addEventListener("input", () => { input.value = input.value.replace(/\D/g, ""); calculate(); }); });
       }
-
       function renderTaskRow(t, n) {
-        return `
-          <div class="task-row">
-            <div class="task-id">Task ${n}</div>
-            <div class="task-name">${escapeHtml(t.name)}</div>
-            <div class="aht">${Number(t.aht).toFixed(0)} min</div>
-            <div class="task-count"><input autocomplete="off" inputmode="numeric" type="text" value="" data-task-id="${escapeHtml(t.id)}" aria-label="${escapeHtml(t.id)} count"></div>
-            <div class="task-comment"><textarea rows="1" data-task-comment="${escapeHtml(t.id)}" placeholder="Optional"></textarea></div>
-          </div>`;
+        return `<div class="task-row"><div class="task-id">Task ${n}</div><div class="task-name">${escapeHtml(t.name)}</div><div class="aht">${Number(t.aht).toFixed(0)} min</div><div class="task-count"><input autocomplete="off" inputmode="numeric" type="text" value="" data-task-id="${escapeHtml(t.id)}" aria-label="${escapeHtml(t.id)} count"></div><div class="task-comment"><textarea rows="1" data-task-comment="${escapeHtml(t.id)}" placeholder="Optional"></textarea></div></div>`;
       }
-
       function getTaskGroups(tasks) {
         const rules = getSectionRules();
         const isAudit = (t) => /audit/i.test(t.name || "");
         const num = (t) => Number(String(t.id).replace(/\D/g, ""));
-        const isOther = (t) => {
-          const o = rules.find((s) => s.isOther && num(t) >= s.min && num(t) <= s.max);
-          return Boolean(o) || /other|office hours|value added/i.test(t.name || "");
-        };
+        const isOther = (t) => Boolean(rules.find((s) => s.isOther && num(t) >= s.min && num(t) <= s.max)) || /other|office hours|value added/i.test(t.name || "");
         const audit = tasks.filter(isAudit);
         const other = tasks.filter((t) => !isAudit(t) && isOther(t));
         const regular = tasks.filter((t) => !isAudit(t) && !isOther(t));
         const groups = [];
         if (rules.length) {
-          rules.filter((s) => !s.isOther).forEach((s) => {
-            const ts = regular.filter((t) => num(t) >= s.min && num(t) <= s.max);
-            if (ts.length) groups.push({ ...s, tasks: ts });
-          });
-        } else if (regular.length) {
-          groups.push({ label: "Daily Tasks", color: "#064e3b", tasks: regular });
-        }
+          rules.filter((s) => !s.isOther).forEach((s) => { const ts = regular.filter((t) => num(t) >= s.min && num(t) <= s.max); if (ts.length) groups.push({ ...s, tasks: ts }); });
+        } else if (regular.length) { groups.push({ label: "Daily Tasks", color: "#064e3b", tasks: regular }); }
         if (audit.length) groups.push({ label: "Audit Tasks", color: "#7f1d1d", tasks: audit });
         if (other.length) groups.push({ label: "Other Tasks", color: "#374151", tasks: other });
         return groups;
       }
-
       function getSectionRules() {
         if (state.selectedTeam === "FDR CBP Team") return FDR_CBP_SECTIONS;
         if (state.selectedTeam === "FDR Uncleared & ASTNC Team") return UNCLEARED_ASTNC_SECTIONS;
         return [];
       }
 
-      // ---------- Live calculation ----------
-      function getCounts() {
-        const c = {};
-        el("taskRows").querySelectorAll("input[data-task-id]").forEach((i) => { c[i.dataset.taskId] = Number(i.value) || 0; });
-        return c;
-      }
+      // ---------- Live calculation / submit ----------
+      function getCounts() { const c = {}; el("taskRows").querySelectorAll("input[data-task-id]").forEach((i) => { c[i.dataset.taskId] = Number(i.value) || 0; }); return c; }
+      function getComments() { const c = {}; el("taskRows").querySelectorAll("textarea[data-task-comment]").forEach((t) => { c[t.dataset.taskComment] = t.value.trim(); }); return c; }
       function calculateTotals(counts) {
         const totalVolume = state.tasks.reduce((s, t) => s + (Number(counts[t.id]) || 0), 0);
         const productiveMinutes = state.tasks.reduce((s, t) => s + (Number(counts[t.id]) || 0) * t.aht, 0);
         const productiveHours = productiveMinutes / 60;
-        return { totalVolume, productiveMinutes, productiveHours, utilization: productiveHours / WORKDAY_HOURS };
+        return { totalVolume, productiveMinutes, productiveHours, utilization: productiveHours / state.workdayHours };
       }
       function calculate() {
         const t = calculateTotals(getCounts());
@@ -1239,26 +1251,40 @@
         el("status").textContent = status;
         el("status").className = statusClass(status);
       }
-
-      function submitEntry(e) {
-        e.preventDefault();
-        if (!el("agent").value) { showMessage("Please select an agent.", "bad"); return; }
-        const totals = calculateTotals(getCounts());
-        showMessage(`Preview saved for ${state.selectedTeam}. ${formatNumber(totals.totalVolume, 0)} total volume, ${formatPercent(totals.utilization)} utilization. (Deploy to Google Apps Script to persist.)`, "good");
-        showCenterToast("Entry preview saved.", "good");
-        clearEntryFields();
-      }
-
       function clearEntryFields() {
         el("taskRows").querySelectorAll("input[data-task-id]").forEach((i) => { i.value = ""; });
         el("taskRows").querySelectorAll("textarea[data-task-comment]").forEach((t) => { t.value = ""; });
         el("notes").value = "";
         calculate();
       }
+      function submitEntry(e) {
+        e.preventDefault();
+        if (!el("agent").value) { showMessage("Please select an agent.", "bad"); return; }
+        const payload = { date: el("workDate").value, team: state.selectedTeam, agent: el("agent").value, submittedBy: el("submittedBy").value, notes: el("notes").value, counts: getCounts(), comments: getComments() };
+        if (state.localPreview) {
+          const t = calculateTotals(payload.counts);
+          showMessage(`Preview saved for ${state.selectedTeam}. ${formatNumber(t.totalVolume, 0)} total volume, ${formatPercent(t.utilization)} utilization.`, "good");
+          showCenterToast("Entry preview saved.", "good"); clearEntryFields(); return;
+        }
+        el("submitButton").disabled = true;
+        google.script.run
+          .withSuccessHandler((r) => { showMessage(`Saved. ${formatNumber(r.totals.totalVolume, 0)} total volume, ${formatPercent(r.totals.utilization)} utilization.`, "good"); showCenterToast("Saved to Google Sheets.", "good"); clearEntryFields(); if (r.dashboard) renderDashboard(r.dashboard); el("submitButton").disabled = false; })
+          .withFailureHandler((err) => { showMessage(err.message || "Could not save.", "bad"); showCenterToast(err.message || "Could not save.", "bad"); el("submitButton").disabled = false; })
+          .saveDailyEntry(payload);
+      }
 
       // ---------- Dashboard ----------
+      function refreshDashboard() {
+        if (!state.selectedTeam) return;
+        if (state.localPreview) { renderDashboard(buildDashboard(state.selectedTeam)); return; }
+        el("refreshButton").disabled = true;
+        google.script.run
+          .withSuccessHandler((d) => { renderDashboard(d); el("refreshButton").disabled = false; })
+          .withFailureHandler((e) => { showMessage(e.message || "Could not refresh dashboard.", "bad"); el("refreshButton").disabled = false; })
+          .getMonthlyUtilization({ month: el("monthPicker").value, dailyDate: el("dailyDatePicker").value, team: state.selectedTeam });
+      }
       function renderDashboard(dashboard) {
-        const data = dashboard || { agents: [], dailyAgents: [] };
+        const data = dashboard || emptyDashboard();
         state.currentDashboard = data;
         if (state.dashboardView === "all" && !canUseAllView()) state.dashboardView = "mine";
         const visible = applyUtilFilters(getVisibleAgentRows(data.agents || []));
@@ -1272,114 +1298,69 @@
         renderAgentRows(visible, visibleDaily);
         updateDashboardViewButtons();
       }
-
       function applyUtilFilters(agents) {
         let out = agents;
         if (state.agentSearch) out = out.filter((a) => a.agent.toLowerCase().includes(state.agentSearch.toLowerCase()));
         if (state.statusFilterValue) out = out.filter((a) => a.status === state.statusFilterValue);
         return out;
       }
-
       function getVisibleAgentRows(agents) {
         if (state.dashboardView === "all") return agents;
         const sel = el("agent").value;
         return sel ? agents.filter((a) => a.agent === sel) : [];
       }
-
       function getVisibleTotals(agents) {
         const activeAgents = agents.filter((a) => a.entryDays > 0).length;
         const totalVolume = agents.reduce((s, a) => s + Number(a.totalVolume || 0), 0);
         const productiveHours = agents.reduce((s, a) => s + Number(a.productiveHours || 0), 0);
         const entryDays = agents.reduce((s, a) => s + Number(a.entryDays || 0), 0);
-        const avgUtilization = entryDays > 0 ? productiveHours / (entryDays * WORKDAY_HOURS) : 0;
+        const avgUtilization = entryDays > 0 ? productiveHours / (entryDays * state.workdayHours) : 0;
         return { activeAgents, totalVolume, productiveHours, avgUtilization };
       }
-
       function renderPie(agents) {
         const active = agents.filter((a) => Number(a.productiveHours) > 0);
         const total = active.reduce((s, a) => s + Number(a.productiveHours), 0);
-        if (!active.length || total === 0) {
-          el("pieChart").className = "pie pie-empty";
-          el("pieChart").style.background = "";
-          el("pieChart").textContent = "No data";
-          el("pieLegend").innerHTML = "";
-          return;
-        }
+        if (!active.length || total === 0) { el("pieChart").className = "pie pie-empty"; el("pieChart").style.background = ""; el("pieChart").textContent = "No data"; el("pieLegend").innerHTML = ""; return; }
         let cursor = 0;
-        const segs = active.map((a, i) => {
-          const start = cursor;
-          cursor += (Number(a.productiveHours) / total) * 100;
-          return `${COLORS[i % COLORS.length]} ${start.toFixed(2)}% ${cursor.toFixed(2)}%`;
-        });
-        el("pieChart").className = "pie";
-        el("pieChart").textContent = "";
-        el("pieChart").style.background = `conic-gradient(${segs.join(", ")})`;
-        el("pieLegend").innerHTML = active.map((a, i) =>
-          `<div class="legend-row"><span class="swatch" style="background:${COLORS[i % COLORS.length]}"></span><span>${escapeHtml(a.agent)}</span><strong>${formatNumber(a.productiveHours, 1)}h</strong></div>`
-        ).join("");
+        const segs = active.map((a, i) => { const start = cursor; cursor += (Number(a.productiveHours) / total) * 100; return `${COLORS[i % COLORS.length]} ${start.toFixed(2)}% ${cursor.toFixed(2)}%`; });
+        el("pieChart").className = "pie"; el("pieChart").textContent = ""; el("pieChart").style.background = `conic-gradient(${segs.join(", ")})`;
+        el("pieLegend").innerHTML = active.map((a, i) => `<div class="legend-row"><span class="swatch" style="background:${COLORS[i % COLORS.length]}"></span><span>${escapeHtml(a.agent)}</span><strong>${formatNumber(a.productiveHours, 1)}h</strong></div>`).join("");
       }
-
       function renderAgentRows(agents, dailyAgents) {
         const sorted = [...agents].sort((a, b) => Number(b.utilization) - Number(a.utilization));
-        const dailyBy = {};
-        (dailyAgents || []).forEach((d) => { dailyBy[d.agent] = d; });
-        if (!sorted.length) {
-          el("agentUtilizationRows").innerHTML = state.dashboardView === "mine"
-            ? `<div class="loading">Select your agent name above to see your daily and monthly utilization.</div>`
-            : `<div class="loading">No agents match the current search/filter.</div>`;
-          return;
-        }
+        const dailyBy = {}; (dailyAgents || []).forEach((d) => { dailyBy[d.agent] = d; });
+        if (!sorted.length) { el("agentUtilizationRows").innerHTML = state.dashboardView === "mine" ? `<div class="loading">Select your agent name above to see your daily and monthly utilization.</div>` : `<div class="loading">No agents match the current search/filter.</div>`; return; }
         el("agentUtilizationRows").innerHTML = sorted.map((a) => {
           const width = Math.min(Math.round(Number(a.utilization || 0) * 100), 140);
           const d = dailyBy[a.agent] || { totalVolume: 0, productiveHours: 0, utilization: 0 };
-          return `
-            <div class="agent-row">
-              <div class="agent-row-top">
-                <strong>${escapeHtml(a.agent)}</strong>
-                <span class="status-chip ${statusClass(a.status)}">${escapeHtml(a.status)} · ${formatPercent(a.utilization)}</span>
-              </div>
-              <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
-              <span>Monthly: ${formatNumber(a.productiveHours, 1)} hours · ${formatNumber(a.totalVolume, 0)} volume · ${formatNumber(a.entryDays, 0)} days</span><br>
-              <span>Daily: ${formatNumber(d.productiveHours, 1)} hours · ${formatNumber(d.totalVolume, 0)} volume · ${formatPercent(d.utilization)}</span>
-            </div>`;
+          return `<div class="agent-row"><div class="agent-row-top"><strong>${escapeHtml(a.agent)}</strong><span class="status-chip ${statusClass(a.status)}">${escapeHtml(a.status)} · ${formatPercent(a.utilization)}</span></div><div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div><span>Monthly: ${formatNumber(a.productiveHours, 1)} hours · ${formatNumber(a.totalVolume, 0)} volume · ${formatNumber(a.entryDays, 0)} days</span><br><span>Daily: ${formatNumber(d.productiveHours, 1)} hours · ${formatNumber(d.totalVolume, 0)} volume · ${formatPercent(d.utilization)}</span></div>`;
         }).join("");
       }
-
       function setDashboardView(view) {
         if (view === "all" && !canUseAllView()) { state.dashboardView = "mine"; renderDashboard(state.currentDashboard); return; }
         state.dashboardView = view;
         renderDashboard(state.currentDashboard);
-        if (!el("kraPanel").hidden) renderKraDashboard(state.currentKraDashboard);
       }
-
       function updateDashboardViewButtons() {
         if (state.dashboardView === "all" && !canUseAllView()) state.dashboardView = "mine";
         el("myViewButton").classList.toggle("active", state.dashboardView === "mine");
         el("allViewButton").classList.toggle("active", state.dashboardView === "all");
+        el("allViewButton").disabled = !canUseAllView();
         const sel = el("agent").value;
         if (state.dashboardView === "all") el("viewNote").textContent = "Admin / Team Lead view shows all agents for the selected team.";
-        else if (sel) el("viewNote").textContent = "My Utilization view shows only the selected agent's data.";
+        else if (sel) el("viewNote").textContent = sel.includes("(Team Lead)") ? "Team lead selected. Use Admin / Lead View to see the full team." : "My Utilization view shows only the selected agent's data.";
         else el("viewNote").textContent = "Select your agent name to see your own utilization.";
       }
 
-      function canUseAllView() { return true; } // admin preview
-
-      // ---------- CSV Export ----------
+      // ---------- CSV export ----------
       function downloadCsv(filename, rows) {
         const csv = rows.map((r) => r.map(csvCell).join(",")).join("\n");
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
         const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(link.href);
+        link.href = URL.createObjectURL(blob); link.download = filename;
+        document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(link.href);
       }
-      function csvCell(v) {
-        const t = String(v == null ? "" : v);
-        return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
-      }
+      function csvCell(v) { const t = String(v == null ? "" : v); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; }
       function exportUtilCsv() {
         const data = state.currentDashboard || { agents: [] };
         const visible = applyUtilFilters(getVisibleAgentRows(data.agents || []));
@@ -1393,26 +1374,338 @@
         const agents = applyKraFilters(getKraReportAgents((state.currentKraDashboard || { agents: [] }).agents || []));
         if (!agents.length) { showCenterToast("No KRA rows to export.", "bad"); return; }
         const rows = [["Agent", "Volume", "Production", "Target", "Audit Count", "Quality %", "Prod 60%", "Quality 30%", "Shrinkage 10%", "Attainment %", "Rating", "Status"]];
-        agents.forEach((a) => rows.push([
-          a.agent, a.totalVolume, a.totalProduction, a.target, a.auditCount,
-          Math.round((a.qualityScore || 0) * 100), Math.round((a.productionContribution || 0) * 100),
-          Math.round((a.qualityContribution || 0) * 100), Math.round((a.shrinkageContribution || 0) * 100),
-          Math.round((a.overallAttainment || 0) * 100), Number(a.actualRating || 0).toFixed(1), a.status,
-        ]));
+        agents.forEach((a) => rows.push([a.agent, a.totalVolume, a.totalProduction, a.target, a.auditCount, Math.round((a.qualityScore || 0) * 100), Math.round((a.productionContribution || 0) * 100), Math.round((a.qualityContribution || 0) * 100), Math.round((a.shrinkageContribution || 0) * 100), Math.round((a.overallAttainment || 0) * 100), Number(a.actualRating || 0).toFixed(1), a.status]));
         downloadCsv(`${state.selectedTeam.replace(/[^a-z0-9]+/gi, "-")}-kra.csv`, rows);
         showCenterToast("KRA CSV downloaded.", "good");
       }
 
-      // ---------- Bulk template ----------
+      // ---------- Attendance ----------
+      function getWeekdayDates(month) {
+        const [y, m] = String(month || "").split("-").map(Number);
+        if (!y || !m) return [];
+        const dates = []; const cur = new Date(y, m - 1, 1);
+        while (cur.getMonth() === m - 1) { const day = cur.getDay(); dates.push({ date: new Date(cur), day, weekend: day === 0 || day === 6 }); cur.setDate(cur.getDate() + 1); }
+        return dates;
+      }
+      function openAttendance() {
+        if (!requireTeam()) return;
+        showSection("attendancePage");
+        el("attMonthPicker").value = el("monthPicker").value;
+        refreshAttendance();
+      }
+      function refreshAttendance() {
+        if (!state.selectedTeam) { el("attTable").innerHTML = `<div class="loading">Select a team first.</div>`; return; }
+        if (state.localPreview) { renderAttendanceGrid(simulateAttendance()); return; }
+        el("attTable").innerHTML = `<div class="loading">Loading attendance...</div>`;
+        google.script.run
+          .withSuccessHandler((res) => renderAttendanceGrid(res))
+          .withFailureHandler((e) => { el("attTable").innerHTML = `<div class="loading">${escapeHtml(e.message || "Could not load attendance.")}</div>`; })
+          .getAttendance({ team: state.selectedTeam, month: el("attMonthPicker").value });
+      }
+      function simulateAttendance() {
+        const month = el("attMonthPicker").value || monthISO();
+        const weekdays = getWeekdayDates(month).filter((d) => !d.weekend);
+        const utilBy = {}; (state.currentDashboard ? state.currentDashboard.agents : []).forEach((a) => { utilBy[a.agent] = a; });
+        const agents = state.agentProfiles.filter((p) => !isLeadAgentName(p.name)).map((p) => p.name);
+        const presentByAgent = {};
+        agents.forEach((name, idx) => {
+          const u = utilBy[name];
+          const days = u ? Math.min(u.entryDays || 0, weekdays.length) : Math.max(0, weekdays.length - (idx % 4) - 3);
+          presentByAgent[name] = weekdays.slice(0, days).map((d) => fmtKey(d.date));
+        });
+        return { team: state.selectedTeam, month, agents, presentByAgent };
+      }
+      function fmtKey(date) { return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-"); }
+      function renderAttendanceGrid(res) {
+        const month = (res && res.month) || el("attMonthPicker").value || monthISO();
+        const dates = getWeekdayDates(month);
+        const weekdays = dates.filter((d) => !d.weekend);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const agents = (res && res.agents && res.agents.length) ? res.agents : state.agentProfiles.filter((p) => !isLeadAgentName(p.name)).map((p) => p.name);
+        const presentByAgent = (res && res.presentByAgent) || {};
+        const presentSets = {}; agents.forEach((a) => { presentSets[a] = new Set(presentByAgent[a] || []); });
+
+        const headCells = dates.map((d) => `<th class="${d.weekend ? "att-weekend" : ""}">${d.date.getDate()}</th>`).join("");
+        const bodyRows = agents.map((name) => {
+          let present = 0;
+          const cells = dates.map((d) => {
+            if (d.weekend) return `<td class="att-cell att-weekend"></td>`;
+            const key = fmtKey(d.date);
+            if (presentSets[name].has(key)) { present++; return `<td class="att-cell att-present" title="Submitted"></td>`; }
+            if (d.date > today) return `<td class="att-cell att-future" title="Future"></td>`;
+            return `<td class="att-cell att-absent" title="No data"></td>`;
+          }).join("");
+          const pct = weekdays.length ? Math.round((present / weekdays.length) * 100) : 0;
+          return `<tr><td class="att-agent">${escapeHtml(name)}</td>${cells}<td class="att-pct">${pct}%</td></tr>`;
+        }).join("");
+        const summaryCells = dates.map((d) => {
+          if (d.weekend) return `<td class="att-weekend"></td>`;
+          if (d.date > today) return `<td class="att-future">–</td>`;
+          const key = fmtKey(d.date);
+          const subs = agents.filter((a) => presentSets[a].has(key)).length;
+          return `<td>${agents.length ? Math.round((subs / agents.length) * 100) : 0}%</td>`;
+        }).join("");
+
+        el("attTable").innerHTML = `<table class="att-table"><thead><tr><th class="att-agent">Agent</th>${headCells}<th class="att-pct">Att %</th></tr></thead><tbody>${bodyRows || ""}<tr class="att-summary-row"><td class="att-agent">Daily Submission %</td>${summaryCells}<td class="att-pct"></td></tr></tbody></table>`;
+      }
+
+      // ---------- Compare teams ----------
+      function openCompare() {
+        showSection("comparePage");
+        refreshCompare();
+      }
+      function refreshCompare() {
+        if (state.localPreview) { renderCompareCards(TEAMS.map((t) => ({ team: t, ...COMPARE_PREVIEW[t] }))); return; }
+        el("compareGrid").innerHTML = `<div class="loading">Loading team comparison...</div>`;
+        el("compareChart").innerHTML = "";
+        google.script.run
+          .withSuccessHandler((res) => renderCompareCards((res && res.teams) || []))
+          .withFailureHandler((e) => { el("compareGrid").innerHTML = `<div class="loading">${escapeHtml(e.message || "Could not load comparison.")}</div>`; })
+          .getTeamComparison({ month: el("monthPicker").value });
+      }
+      function renderCompareCards(teams) {
+        if (!teams.length) { el("compareGrid").innerHTML = `<div class="loading">No team data available.</div>`; el("compareChart").innerHTML = ""; return; }
+        el("compareGrid").innerHTML = teams.map((d) => {
+          const i = Math.max(0, TEAMS.indexOf(d.team));
+          return `<div class="compare-col"><div class="compare-col-head" style="--col-color:${TEAM_BUTTON_COLORS[i % TEAM_BUTTON_COLORS.length]}">${escapeHtml(d.team)}</div><div class="compare-col-body">
+            <div class="compare-metric"><span>Total Volume</span><strong>${formatNumber(d.totalVolume, 0)}</strong></div>
+            <div class="compare-metric"><span>Productive Hours</span><strong>${formatNumber(d.productiveHours, 0)}</strong></div>
+            <div class="compare-metric"><span>Avg Utilization</span><strong>${formatPercent(d.avgUtilization)}</strong></div>
+            <div class="compare-metric"><span>Avg KRA Rating</span><strong>${Number(d.avgRating || 0).toFixed(1)}</strong></div>
+            <div class="compare-metric"><span>Target Met</span><strong>${formatPercent(d.targetMetPct)}</strong></div>
+          </div></div>`;
+        }).join("");
+        renderCompareChart(teams);
+      }
+      function renderCompareChart(teams) {
+        const W = 720, H = 300, pad = 50, barW = 90, gap = 80, baseX = pad + 30, chartH = H - pad - 30;
+        const bars = teams.map((d, i) => {
+          const util = Number(d.avgUtilization || 0);
+          const h = Math.round(Math.min(util, 1) * chartH);
+          const x = baseX + i * (barW + gap), y = (H - pad) - h, color = TEAM_BUTTON_COLORS[Math.max(0, TEAMS.indexOf(d.team)) % TEAM_BUTTON_COLORS.length];
+          return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="6" fill="${color}"></rect><text x="${x + barW / 2}" y="${y - 8}" text-anchor="middle" font-size="15" font-weight="900" fill="#0b3024">${Math.round(util * 100)}%</text><text x="${x + barW / 2}" y="${H - pad + 20}" text-anchor="middle" font-size="11" font-weight="700" fill="#566b62">${escapeHtml(String(d.team).replace(" Team", ""))}</text>`;
+        }).join("");
+        const grid = [0, 0.25, 0.5, 0.75, 1].map((g) => { const y = (H - pad) - g * chartH; return `<line x1="${baseX - 10}" y1="${y}" x2="${W - 20}" y2="${y}" stroke="#d6e6df" stroke-width="1"></line><text x="${baseX - 16}" y="${y + 4}" text-anchor="end" font-size="10" fill="#9bb0a8">${Math.round(g * 100)}%</text>`; }).join("");
+        el("compareChart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:760px;">${grid}<line x1="${baseX - 10}" y1="${H - pad}" x2="${W - 20}" y2="${H - pad}" stroke="#bdd5cc" stroke-width="2"></line>${bars}</svg>`;
+      }
+
+      // ---------- KRA ----------
+      function getKraWeight(t) { return (Number(t && t.aht) || 0) / 10; }
+      function isLeadAgentName(name) { return String(name || "").includes("(Team Lead)"); }
+      function getAgentProcess(name) { const p = state.agentProfiles.find((x) => x.name === name); return p ? (p.process || "-") : "-"; }
+      function getKraReportAgents(agents) { return agents.filter((a) => !isLeadAgentName(a.agent)).sort((a, b) => Number(b.overallAttainment || 0) - Number(a.overallAttainment || 0)); }
+      function applyKraFilters(agents) {
+        let out = agents;
+        if (state.kraSearch) out = out.filter((a) => a.agent.toLowerCase().includes(state.kraSearch.toLowerCase()));
+        if (state.kraStatusFilterValue) out = out.filter((a) => a.status === state.kraStatusFilterValue);
+        return out;
+      }
+      function renderKraAgentPicker() {
+        const nonLead = state.agentProfiles.filter((p) => !isLeadAgentName(p.name));
+        el("kraAgentPicker").innerHTML = ['<option value="">Select agent</option>'].concat(nonLead.map((p) => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`)).join("");
+        el("kraAgentPicker").value = state.kraAgentName;
+      }
+      function openKraPage() {
+        if (!requireTeam()) return;
+        el("kraMonthPicker").value = el("monthPicker").value;
+        showSection("kraPage");
+        renderKraAgentPicker();
+        renderKraEntryTasks();
+        loadKraEntry();
+        refreshKraPage();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      function refreshKraPage() {
+        if (!state.selectedTeam) return;
+        if (state.localPreview) { const d = buildKraDashboard(state.selectedTeam); d.month = el("kraMonthPicker").value; renderKraReportPage(d); return; }
+        el("kraRefreshButton").disabled = true; el("kraRefreshButton").textContent = "Loading...";
+        el("kraPageRows").innerHTML = `<div class="loading">Loading KRA details...</div>`;
+        google.script.run
+          .withSuccessHandler((d) => { renderKraReportPage(d); el("kraRefreshButton").disabled = false; el("kraRefreshButton").textContent = "Refresh KRA"; })
+          .withFailureHandler((e) => { el("kraPageRows").innerHTML = `<div class="loading">${escapeHtml(e.message || "Could not refresh KRA.")}</div>`; el("kraRefreshButton").disabled = false; el("kraRefreshButton").textContent = "Refresh KRA"; })
+          .getKraDashboard({ month: el("kraMonthPicker").value, team: state.selectedTeam });
+      }
+      function renderKraReportPage(dashboard) {
+        const data = dashboard || emptyKraDashboard();
+        state.currentKraDashboard = data;
+        const reportAgents = getKraReportAgents(data.agents || []);
+        const scoped = state.kraAgentMode === "agent" && state.kraAgentName ? reportAgents.filter((a) => a.agent === state.kraAgentName) : reportAgents;
+        const agents = applyKraFilters(scoped);
+        const active = agents.filter((a) => Number(a.totalVolume || 0) > 0).length;
+        const totalProd = agents.reduce((s, a) => s + Number(a.totalProduction || 0), 0);
+        const avgAtt = active ? agents.reduce((s, a) => s + (Number(a.totalVolume || 0) > 0 ? Number(a.overallAttainment || 0) : 0), 0) / active : 0;
+        const avgRating = active ? agents.reduce((s, a) => s + (Number(a.totalVolume || 0) > 0 ? Number(a.actualRating || 0) : 0), 0) / active : 0;
+        const targetMet = agents.filter((a) => Number(a.totalVolume || 0) > 0 && Number(a.overallAttainment || 0) >= 1).length;
+        const monthLabel = formatMonthLabel(data.month || el("kraMonthPicker").value);
+        const selLabel = state.kraAgentMode === "agent" && state.kraAgentName ? state.kraAgentName : "All Agents";
+        el("kraPageTeamName").textContent = data.team || state.selectedTeam;
+        el("kraPageMonthLabel").textContent = monthLabel;
+        el("kraReportTitle").textContent = `${selLabel} KRA`;
+        el("kraReportSubtitle").textContent = `${data.team || state.selectedTeam} · Production 60% · Quality 30% · Shrinkage 10%`;
+        el("kraReportTargetMet").textContent = `${targetMet}/${active} Target Met`;
+        el("kraPageProduction").textContent = formatNumber(totalProd, 1);
+        el("kraPageAttainment").textContent = formatPercent(avgAtt);
+        el("kraPageRating").textContent = formatNumber(avgRating, 1);
+        el("kraPageActiveAgents").textContent = formatNumber(active, 0);
+        el("kraPageWorkingDays").textContent = formatNumber(data.workingDays, 0);
+        el("kraPageTarget").textContent = formatNumber(data.target, 0);
+        el("kraAllButton").classList.toggle("active", state.kraAgentMode === "all");
+        el("kraAgentButton").classList.toggle("active", state.kraAgentMode === "agent");
+        el("kraAllButton").disabled = !canUseAllView();
+        renderKraSplitRows(agents, active);
+        renderKraPageRows(agents);
+        updateKraEmailRecipient();
+        updateKraEmailTemplate(monthLabel);
+      }
+      function renderKraSplitRows(agents, active) {
+        const avgs = ["productionContribution", "qualityContribution", "shrinkageContribution", "overallAttainment"].map((k) => active ? agents.reduce((s, a) => s + (Number(a.totalVolume || 0) > 0 ? Number(a[k] || 0) : 0), 0) / active : 0);
+        const rows = [["Production Score", avgs[0], 0.6], ["Quality Score", avgs[1], 0.3], ["Shrinkage Score", avgs[2], 0.1], ["Overall Attainment", avgs[3], 1]];
+        el("kraSplitRows").innerHTML = rows.map(([label, value, max]) => { const w = Math.min(100, Math.max(0, Math.round((Number(value) / max) * 100))); return `<div class="kra-split-row"><div><span>${label}</span><strong>${formatPercent(value)}</strong></div><div class="kra-meter"><span style="width:${w}%"></span></div></div>`; }).join("");
+      }
+      function renderKraPageRows(agents) {
+        if (!agents.length) { el("kraPageRows").innerHTML = `<div class="loading">No KRA data matches this selection.</div>`; return; }
+        el("kraPageRows").innerHTML = `<table><thead><tr><th>#</th><th>Agent</th><th class="number">Volume</th><th class="number">Production</th><th class="number">Target</th><th class="number">Audits</th><th class="number">Quality</th><th class="number">Planned</th><th class="number">Unplanned</th><th class="number">Prod 60%</th><th class="number">Quality 30%</th><th class="number">Shrinkage 10%</th><th class="number">Attainment</th><th class="number">Rating</th><th>Status</th></tr></thead><tbody>${agents.map((a, i) => `<tr><td>${i + 1}</td><td class="kra-agent-name"><strong>${escapeHtml(a.agent)}</strong><span>${escapeHtml(getAgentProcess(a.agent))}</span></td><td class="number">${formatNumber(a.totalVolume, 0)}</td><td class="number">${formatNumber(a.totalProduction, 1)}</td><td class="number">${formatNumber(a.target, 0)}</td><td class="number">${formatNumber(a.auditCount, 0)}</td><td class="number">${formatPercent(a.qualityScore)}</td><td class="number">${formatNumber(a.plannedShrinkage, 1)}</td><td class="number">${formatNumber(a.unplannedShrinkage, 1)}</td><td class="number">${formatPercent(a.productionContribution)}</td><td class="number">${formatPercent(a.qualityContribution)}</td><td class="number">${formatPercent(a.shrinkageContribution)}</td><td class="number">${formatPercent(a.overallAttainment)}</td><td class="number">${formatNumber(a.actualRating, 1)}</td><td><span class="status-chip ${statusClass(a.status)}">${escapeHtml(a.status || "No data")}</span></td></tr>`).join("")}</tbody></table>`;
+      }
+      function setKraAgentMode(mode) {
+        state.kraAgentMode = mode;
+        if (mode === "all") { state.kraAgentName = ""; el("kraAgentPicker").value = ""; el("kraEmailTo").value = ""; }
+        else if (!state.kraAgentName) { const fb = state.agentProfiles.find((p) => !isLeadAgentName(p.name)); state.kraAgentName = fb ? fb.name : ""; el("kraAgentPicker").value = state.kraAgentName; }
+        renderKraReportPage(state.currentKraDashboard);
+        loadKraEntry();
+      }
+      function renderKraEntryTasks() {
+        if (!state.tasks.length) { el("kraEntryRows").innerHTML = `<div class="loading">No KRA tasks configured.</div>`; return; }
+        el("kraEntryRows").innerHTML = `<div class="entry-grid"><div class="entry-grid-head"><div>Task</div><div>Task Name</div><div>AHT</div><div>Count</div><div>Comment</div></div>${state.tasks.map((t, i) => `<div class="task-row"><div class="task-id">Task ${i + 1}</div><div class="task-name">${escapeHtml(t.name)}</div><div class="aht">${Number(t.aht).toFixed(0)} min</div><div class="task-count"><input autocomplete="off" inputmode="numeric" type="text" value="" data-kra-task-id="${escapeHtml(t.id)}"></div><div class="task-comment"><textarea rows="1" data-kra-task-comment="${escapeHtml(t.id)}" placeholder="Optional"></textarea></div></div>`).join("")}</div>`;
+        el("kraEntryRows").querySelectorAll("input[data-kra-task-id]").forEach((i) => i.addEventListener("input", () => { i.value = i.value.replace(/\D/g, ""); renderKraEntryPreview(); }));
+        renderKraEntryPreview();
+      }
+      function getKraEntryCounts() { const c = {}; el("kraEntryRows").querySelectorAll("input[data-kra-task-id]").forEach((i) => { c[i.dataset.kraTaskId] = Number(i.value) || 0; }); return c; }
+      function getKraEntryComments() { const c = {}; el("kraEntryRows").querySelectorAll("textarea[data-kra-task-comment]").forEach((t) => { c[t.dataset.kraTaskComment] = t.value.trim(); }); return c; }
+      function getKraEntryMetrics() {
+        const q = Number(el("kraQualityScore").value);
+        return { workingDays: Number(el("kraWorkingDays").value) || 0, auditCount: Number(el("kraAuditCount").value) || 0, qualityScore: Number.isFinite(q) && el("kraQualityScore").value !== "" ? q / 100 : 1, internalFatalErrors: Number(el("kraInternalFatal").value) || 0, internalNonFatalErrors: Number(el("kraInternalNonFatal").value) || 0, coachingFatalErrors: Number(el("kraCoachingFatal").value) || 0, coachingNonFatalErrors: Number(el("kraCoachingNonFatal").value) || 0, plannedShrinkage: Number(el("kraPlannedShrinkage").value) || 0, unplannedShrinkage: Number(el("kraUnplannedShrinkage").value) || 0 };
+      }
+      function calcKraPreview() {
+        const counts = getKraEntryCounts(); const m = getKraEntryMetrics();
+        const totalVolume = state.tasks.reduce((s, t) => s + (Number(counts[t.id]) || 0), 0);
+        const totalProduction = state.tasks.reduce((s, t) => s + (Number(counts[t.id]) || 0) * getKraWeight(t), 0);
+        const target = Math.max(0, (Number(m.workingDays) || 0) - 2) * KRA_TARGET_PER_DAY;
+        const productionContribution = target > 0 ? (totalProduction / target) * 0.6 : 0;
+        const hasFatal = m.internalFatalErrors > 0 || m.coachingFatalErrors > 0;
+        const qualityContribution = hasFatal ? 0 : m.qualityScore >= 0.99 ? 0.3 : m.qualityScore > 0.97 ? 0.24 : m.qualityScore > 0.9499 ? 0.18 : m.qualityScore > 0.92 ? 0.12 : 0;
+        const shrinkageContribution = productionContribution >= 0.6 ? 0.1 : m.unplannedShrinkage >= 1 ? 0 : m.plannedShrinkage <= 2 ? 0.1 : 0;
+        const overallAttainment = productionContribution + qualityContribution + shrinkageContribution;
+        const rawRating = overallAttainment < 0.8 ? 1 : overallAttainment >= 1.15 ? 5 : 2 + (overallAttainment - 0.8) * (3 / 0.4);
+        const actualRating = Math.max(1, Math.min(5, rawRating));
+        const status = totalVolume === 0 ? "No data" : overallAttainment >= 1 ? "On target" : overallAttainment >= 0.8 ? "Watch" : "Below target";
+        return { ...m, totalVolume, totalProduction, target, productionContribution, qualityContribution, shrinkageContribution, overallAttainment, actualRating, status };
+      }
+      function renderKraEntryPreview() {
+        if (el("kraEntryPanel").hidden) return;
+        const p = calcKraPreview();
+        el("kraEntryPreview").innerHTML = `<div class="kra-preview-item"><span>Total Volume</span><strong>${formatNumber(p.totalVolume, 0)}</strong></div><div class="kra-preview-item"><span>Production</span><strong>${formatNumber(p.totalProduction, 1)}</strong></div><div class="kra-preview-item"><span>Target</span><strong>${formatNumber(p.target, 0)}</strong></div><div class="kra-preview-item"><span>Prod 60%</span><strong>${formatPercent(p.productionContribution)}</strong></div><div class="kra-preview-item"><span>Quality 30%</span><strong>${formatPercent(p.qualityContribution)}</strong></div><div class="kra-preview-item"><span>Shrinkage 10%</span><strong>${formatPercent(p.shrinkageContribution)}</strong></div><div class="kra-preview-item"><span>Rating</span><strong>${formatNumber(p.actualRating, 1)}</strong></div><div class="kra-preview-item"><span>Attainment</span><strong>${formatPercent(p.overallAttainment)}</strong></div><div class="kra-preview-item"><span>Status</span><strong>${escapeHtml(p.status)}</strong></div>`;
+      }
+      function fillKraEntryFields(entry) {
+        const counts = entry && entry.counts ? entry.counts : {};
+        const comments = entry && entry.comments ? entry.comments : {};
+        const metrics = entry && entry.metrics ? entry.metrics : {};
+        el("kraEntryRows").querySelectorAll("input[data-kra-task-id]").forEach((i) => { const v = Number(counts[i.dataset.kraTaskId] || 0); i.value = v ? String(v) : ""; });
+        el("kraEntryRows").querySelectorAll("textarea[data-kra-task-comment]").forEach((t) => { t.value = comments[t.dataset.kraTaskComment] || ""; });
+        fillKraMetricFields(metrics);
+        renderKraEntryPreview();
+      }
+      function fillKraMetricFields(m) {
+        el("kraWorkingDays").value = m.workingDays || "";
+        el("kraAuditCount").value = m.auditCount || "";
+        el("kraQualityScore").value = m.qualityScore == null ? "" : Number((Number(m.qualityScore) * 100).toFixed(2));
+        el("kraInternalFatal").value = m.internalFatalErrors || "";
+        el("kraInternalNonFatal").value = m.internalNonFatalErrors || "";
+        el("kraCoachingFatal").value = m.coachingFatalErrors || "";
+        el("kraCoachingNonFatal").value = m.coachingNonFatalErrors || "";
+        el("kraPlannedShrinkage").value = m.plannedShrinkage || "";
+        el("kraUnplannedShrinkage").value = m.unplannedShrinkage || "";
+      }
+      function clearKraEntryFields() {
+        el("kraEntryRows").querySelectorAll("input[data-kra-task-id]").forEach((i) => { i.value = ""; });
+        el("kraEntryRows").querySelectorAll("textarea[data-kra-task-comment]").forEach((t) => { t.value = ""; });
+        fillKraMetricFields({});
+        renderKraEntryPreview();
+      }
+      function loadKraEntry() {
+        if (!canUseAllView()) return;
+        if (!state.kraAgentName) { clearKraEntryFields(); el("kraEntryMessage").textContent = "Select an agent to add monthly KRA data."; el("kraEntryMessage").className = "message"; return; }
+        if (state.localPreview) {
+          const ex = (state.currentKraDashboard.agents || []).find((a) => a.agent === state.kraAgentName) || {};
+          fillKraEntryFields({ counts: {}, comments: {}, metrics: { workingDays: ex.workingDays || 22, auditCount: ex.auditCount || 0, qualityScore: ex.qualityScore == null ? 1 : ex.qualityScore, plannedShrinkage: ex.plannedShrinkage || 0, unplannedShrinkage: ex.unplannedShrinkage || 0 } });
+          el("kraEntryMessage").textContent = ""; return;
+        }
+        el("kraEntryMessage").textContent = "Loading KRA entry..."; el("kraEntryMessage").className = "message";
+        google.script.run
+          .withSuccessHandler((entry) => { fillKraEntryFields(entry); el("kraEntryMessage").textContent = ""; })
+          .withFailureHandler((e) => { clearKraEntryFields(); el("kraEntryMessage").textContent = e.message || "Could not load KRA entry."; el("kraEntryMessage").className = "message bad"; })
+          .getKraEntry({ month: el("kraMonthPicker").value, team: state.selectedTeam, agent: state.kraAgentName });
+      }
+      function applyLocalKra() {
+        const summary = { agent: state.kraAgentName, ...calcKraPreview() };
+        const dash = state.currentKraDashboard;
+        const idx = (dash.agents || []).findIndex((a) => a.agent === state.kraAgentName);
+        if (idx >= 0) dash.agents[idx] = { ...dash.agents[idx], ...summary }; else dash.agents.push(summary);
+        renderKraReportPage(dash);
+      }
+      function saveKraEntry() {
+        if (!canUseAllView()) return;
+        if (!state.kraAgentName) { el("kraEntryMessage").textContent = "Select an agent before saving KRA data."; el("kraEntryMessage").className = "message bad"; return; }
+        if (state.localPreview) { applyLocalKra(); el("kraEntryMessage").textContent = "Preview updated. Deploy to persist into Sheets."; el("kraEntryMessage").className = "message good"; showCenterToast("KRA saved (preview).", "good"); return; }
+        el("kraSaveButton").disabled = true; el("kraSaveButton").textContent = "Saving...";
+        google.script.run
+          .withSuccessHandler((r) => { el("kraEntryMessage").textContent = r.message || "KRA monthly data saved."; el("kraEntryMessage").className = "message good"; el("kraSaveButton").disabled = false; el("kraSaveButton").textContent = "Save KRA Data"; refreshKraPage(); showCenterToast("KRA data saved.", "good"); })
+          .withFailureHandler((e) => { el("kraEntryMessage").textContent = e.message || "Could not save KRA data."; el("kraEntryMessage").className = "message bad"; el("kraSaveButton").disabled = false; el("kraSaveButton").textContent = "Save KRA Data"; showCenterToast(e.message || "Could not save.", "bad"); })
+          .saveKraEntry({ month: el("kraMonthPicker").value, team: state.selectedTeam, agent: state.kraAgentName, counts: getKraEntryCounts(), comments: getKraEntryComments(), metrics: getKraEntryMetrics(), submittedBy: el("submittedBy").value });
+      }
+      function updateKraEmailRecipient() {
+        if (state.kraAgentMode !== "agent" || !state.kraAgentName) { el("kraEmailTo").value = ""; return; }
+        const p = state.agentProfiles.find((x) => x.name === state.kraAgentName);
+        el("kraEmailTo").value = p && p.email ? p.email : "";
+      }
+      function canEditKraEmailTemplate() { return Boolean(state.access && state.access.isAdmin); }
+      function updateKraEmailTemplate(monthLabel) {
+        const canEdit = canEditKraEmailTemplate();
+        el("kraEmailSubject").disabled = !canEdit;
+        el("kraEmailBody").disabled = !canEdit;
+        el("kraEmailTemplateNote").textContent = canEdit ? "Only admin can edit this before sending." : "This template is locked. Only admin can edit it.";
+        if (state.kraAgentMode !== "agent" || !state.kraAgentName) { el("kraEmailSubject").value = ""; el("kraEmailBody").value = "Select Agent Wise KRA and choose an agent to prepare the email template."; return; }
+        el("kraEmailSubject").value = `Monthly Performance Report - ${monthLabel} (${state.kraAgentName})`;
+        el("kraEmailBody").value = `Hi ${state.kraAgentName},\n\nPlease find below your Monthly Performance for ${monthLabel}.`;
+      }
+      function sendKraEmail() {
+        updateKraEmailRecipient();
+        const email = el("kraEmailTo").value.trim();
+        el("kraEmailMessage").textContent = ""; el("kraEmailMessage").className = "message";
+        if (!email) { el("kraEmailMessage").textContent = "Please enter an email address."; el("kraEmailMessage").className = "message bad"; return; }
+        if (state.kraAgentMode !== "agent" || !state.kraAgentName) { el("kraEmailMessage").textContent = "Select Agent Wise KRA and choose an agent first."; el("kraEmailMessage").className = "message bad"; return; }
+        if (state.localPreview) { el("kraEmailMessage").textContent = "Email is available after deploying in Google Apps Script."; return; }
+        el("kraEmailButton").disabled = true; el("kraEmailButton").textContent = "Sending...";
+        google.script.run
+          .withSuccessHandler((r) => { const m = r.message || "Email sent successfully."; el("kraEmailMessage").textContent = m; el("kraEmailMessage").className = "message good"; el("kraEmailButton").disabled = false; el("kraEmailButton").textContent = "Email KRA"; showCenterToast(m, "good"); })
+          .withFailureHandler((e) => { el("kraEmailMessage").textContent = e.message || "Could not send KRA email."; el("kraEmailMessage").className = "message bad"; el("kraEmailButton").disabled = false; el("kraEmailButton").textContent = "Email KRA"; showCenterToast(e.message || "Could not send.", "bad"); })
+          .sendKraEmail({ month: el("kraMonthPicker").value, team: state.selectedTeam, mode: state.kraAgentMode, agent: state.kraAgentName, email, subject: el("kraEmailSubject").value, body: el("kraEmailBody").value, counts: getKraEntryCounts(), comments: getKraEntryComments(), metrics: getKraEntryMetrics() });
+      }
+
+      // ---------- Bulk upload ----------
+      function openBulkPage() {
+        if (!requireTeam()) return;
+        if (el("bulkButton").hidden) { showMessage("Bulk upload is for leads/admin only.", "bad"); return; }
+        showSection("bulkPage");
+        el("bulkMonthPicker").value = el("monthPicker").value;
+        el("bulkMessage").textContent = ""; el("bulkMessage").className = "message";
+      }
       function downloadBulkTemplate() {
-        if (!state.selectedTeam) { showCenterToast("Select a team first.", "bad"); return; }
-        const month = el("bulkMonthPicker").value || monthISO();
+        if (!state.selectedTeam) return;
+        const month = el("bulkMonthPicker").value || el("monthPicker").value;
         const agents = state.agentProfiles.filter((p) => !isLeadAgentName(p.name)).map((p) => p.name);
         const headers = ["Work Date", "Agent", ...state.tasks.flatMap((t) => [t.name, `${t.name} Comment`]), "General Notes", "Submitted By"];
         const rows = [headers];
-        getWeekdayDatesForMonth(month).forEach((date) => {
-          agents.forEach((agent) => { rows.push([date, agent, ...state.tasks.flatMap(() => ["", ""]), "", ""]); });
-        });
+        getWeekdayDatesForMonth(month).forEach((date) => { agents.forEach((agent) => { rows.push([date, agent, ...state.tasks.flatMap(() => ["", ""]), "", ""]); }); });
         downloadCsv(`${state.selectedTeam.replace(/[^a-z0-9]+/gi, "-")}-${month}-bulk-upload.csv`, rows);
         showCenterToast("Template downloaded.", "good");
       }
@@ -1428,441 +1721,96 @@
         if (Number.isNaN(v.getTime())) return "";
         return [v.getFullYear(), String(v.getMonth() + 1).padStart(2, "0"), String(v.getDate()).padStart(2, "0")].join("-");
       }
-
-      // ---------- Attendance ----------
-      function getWeekdayDates(month) {
-        const [y, m] = String(month || "").split("-").map(Number);
-        if (!y || !m) return [];
-        const dates = [];
-        const cur = new Date(y, m - 1, 1);
-        while (cur.getMonth() === m - 1) {
-          const day = cur.getDay();
-          dates.push({ date: new Date(cur), day, weekend: day === 0 || day === 6 });
-          cur.setDate(cur.getDate() + 1);
+      function readTextFile(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result || "")); r.onerror = () => rej(new Error("Could not read the selected file.")); r.readAsText(file); }); }
+      function readFileAsBase64(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result || "").split(",").pop()); r.onerror = () => rej(new Error("Could not read the selected Excel file.")); r.readAsDataURL(file); }); }
+      function chooseDelimiter(text) { const first = String(text).split(/\r?\n/)[0] || ""; return (first.match(/\t/g) || []).length > (first.match(/,/g) || []).length ? "\t" : ","; }
+      function parseDelimitedRows(text, delimiter) {
+        const rows = []; let row = []; let cell = ""; let inQuotes = false;
+        const src = String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+        for (let i = 0; i < src.length; i += 1) {
+          const ch = src[i], next = src[i + 1];
+          if (ch === '"') { if (inQuotes && next === '"') { cell += '"'; i += 1; } else { inQuotes = !inQuotes; } }
+          else if (ch === delimiter && !inQuotes) { row.push(cell); cell = ""; }
+          else if (ch === "\n" && !inQuotes) { row.push(cell); rows.push(row); row = []; cell = ""; }
+          else { cell += ch; }
         }
-        return dates;
+        row.push(cell); rows.push(row); return rows;
       }
-
-      function renderAttendance() {
-        if (!state.selectedTeam) { el("attTable").innerHTML = `<div class="loading">Select a team first.</div>`; return; }
-        const month = el("attMonthPicker").value || monthISO();
-        const dates = getWeekdayDates(month);
-        const weekdays = dates.filter((d) => !d.weekend);
-        const today = new Date();
-        const agents = state.agentProfiles.filter((p) => !isLeadAgentName(p.name));
-        const utilByAgent = {};
-        (state.currentDashboard ? state.currentDashboard.agents : []).forEach((a) => { utilByAgent[a.agent] = a; });
-
-        // Simulate which weekdays each agent submitted (based on entryDays, capped)
-        const presence = {};
-        agents.forEach((p, idx) => {
-          const u = utilByAgent[p.name];
-          const days = u ? Math.min(u.entryDays || 0, weekdays.length) : Math.max(0, weekdays.length - (idx % 4) - 3);
-          presence[p.name] = new Set(weekdays.slice(0, days).map((d) => d.date.getDate()));
+      function normalizeHeader(v) { return String(v || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
+      function findHeaderIndex(headers, candidates) { return headers.findIndex((h) => candidates.includes(h)); }
+      function parseUploadDate(value) {
+        const text = String(value || "").trim();
+        if (!text) return "";
+        const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text);
+        if (iso) return `${iso[1]}-${String(iso[2]).padStart(2, "0")}-${String(iso[3]).padStart(2, "0")}`;
+        const slash = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/.exec(text);
+        if (slash) { let f = Number(slash[1]), s = Number(slash[2]), y = Number(slash[3]); if (y < 100) y += 2000; const day = f > 12 ? f : s > 12 ? s : f; const mon = f > 12 ? s : s > 12 ? f : s; return `${y}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`; }
+        if (/^\d+(\.\d+)?$/.test(text)) { const d = new Date(Math.round((Number(text) - 25569) * 86400 * 1000)); if (!Number.isNaN(d.getTime())) return formatDateForInput(d); }
+        const parsed = new Date(text); return Number.isNaN(parsed.getTime()) ? "" : formatDateForInput(parsed);
+      }
+      function parseBulkEntries(text) {
+        const delimiter = chooseDelimiter(text);
+        const rows = parseDelimitedRows(text, delimiter).filter((r) => r.some((c) => String(c).trim()));
+        if (rows.length < 2) throw new Error("The upload needs a header row and at least one data row.");
+        const headers = rows[0].map(normalizeHeader);
+        const dateIndex = findHeaderIndex(headers, ["workdate", "date"]);
+        const agentIndex = findHeaderIndex(headers, ["agent", "agentname", "employeename"]);
+        if (dateIndex < 0 || agentIndex < 0) throw new Error("Headers must include Work Date and Agent.");
+        const notesIndex = findHeaderIndex(headers, ["generalnotes", "notes"]);
+        const submittedByIndex = findHeaderIndex(headers, ["submittedby"]);
+        const taskColumns = state.tasks.map((t) => ({ task: t, countIndex: findHeaderIndex(headers, [normalizeHeader(t.name), normalizeHeader(`${t.name} Count`), normalizeHeader(t.id), normalizeHeader(`${t.id} Count`)]), commentIndex: findHeaderIndex(headers, [normalizeHeader(`${t.name} Comment`), normalizeHeader(`${t.id} Comment`)]) }));
+        const parsed = [];
+        rows.slice(1).forEach((row, ri) => {
+          const date = parseUploadDate(row[dateIndex]);
+          const agent = String(row[agentIndex] || "").trim();
+          if (!date && !agent) return;
+          if (!date || !agent) throw new Error(`Row ${ri + 2}: Work Date and Agent are required.`);
+          const counts = {}; const comments = {}; let hasData = false;
+          taskColumns.forEach(({ task, countIndex, commentIndex }) => {
+            const rawCount = countIndex >= 0 ? String(row[countIndex] || "").trim() : "";
+            const rawComment = commentIndex >= 0 ? String(row[commentIndex] || "").trim() : "";
+            const count = rawCount === "" ? "" : Number(rawCount.replace(/,/g, ""));
+            if (count !== "" && (!Number.isFinite(count) || count < 0)) throw new Error(`Row ${ri + 2}: ${task.name} count must be zero or positive.`);
+            counts[task.id] = count === "" ? "" : count; comments[task.id] = rawComment;
+            if (count || rawComment) hasData = true;
+          });
+          const notes = notesIndex >= 0 ? String(row[notesIndex] || "").trim() : "";
+          if (!hasData && !notes) return;
+          parsed.push({ date, agent, counts, comments, notes, submittedBy: submittedByIndex >= 0 ? String(row[submittedByIndex] || "").trim() : "" });
         });
-
-        const headCells = dates.map((d) => {
-          const label = d.date.getDate();
-          return `<th class="${d.weekend ? "att-weekend" : ""}">${label}</th>`;
-        }).join("");
-
-        const bodyRows = agents.map((p) => {
-          const present = presence[p.name];
-          let presentCount = 0;
-          const cells = dates.map((d) => {
-            if (d.weekend) return `<td class="att-cell att-weekend"></td>`;
-            const isFuture = d.date > today;
-            if (present.has(d.date.getDate())) { presentCount++; return `<td class="att-cell att-present" title="Submitted"></td>`; }
-            if (isFuture) return `<td class="att-cell att-future" title="Future"></td>`;
-            return `<td class="att-cell att-absent" title="No data"></td>`;
-          }).join("");
-          const pct = weekdays.length ? Math.round((presentCount / weekdays.length) * 100) : 0;
-          return `<tr><td class="att-agent">${escapeHtml(p.name)}</td>${cells}<td class="att-pct">${pct}%</td></tr>`;
-        }).join("");
-
-        // Per-day summary
-        const summaryCells = dates.map((d) => {
-          if (d.weekend) return `<td class="att-weekend"></td>`;
-          if (d.date > today) return `<td class="att-future">–</td>`;
-          const subs = agents.filter((p) => presence[p.name].has(d.date.getDate())).length;
-          const pct = agents.length ? Math.round((subs / agents.length) * 100) : 0;
-          return `<td>${pct}%</td>`;
-        }).join("");
-
-        el("attTable").innerHTML = `
-          <table class="att-table">
-            <thead><tr><th class="att-agent">Agent</th>${headCells}<th class="att-pct">Att %</th></tr></thead>
-            <tbody>
-              ${bodyRows}
-              <tr class="att-summary-row"><td class="att-agent">Daily Submission %</td>${summaryCells}<td class="att-pct"></td></tr>
-            </tbody>
-          </table>`;
+        if (!parsed.length) throw new Error("No rows with task counts or notes were found.");
+        return parsed;
       }
-
-      // ---------- Compare Teams ----------
-      function renderCompare() {
-        const maxVal = Math.max(...TEAMS.map((t) => COMPARE_DATA[t].util));
-        el("compareGrid").innerHTML = TEAMS.map((team, i) => {
-          const d = COMPARE_DATA[team];
-          return `
-            <div class="compare-col">
-              <div class="compare-col-head" style="--col-color:${TEAM_BUTTON_COLORS[i]}">${escapeHtml(team)}</div>
-              <div class="compare-col-body">
-                <div class="compare-metric"><span>Total Volume</span><strong>${formatNumber(d.volume, 0)}</strong></div>
-                <div class="compare-metric"><span>Productive Hours</span><strong>${formatNumber(d.hours, 0)}</strong></div>
-                <div class="compare-metric"><span>Avg Utilization</span><strong>${formatPercent(d.util)}</strong></div>
-                <div class="compare-metric"><span>Avg KRA Rating</span><strong>${d.kraRating.toFixed(1)}</strong></div>
-                <div class="compare-metric"><span>Target Met</span><strong>${formatPercent(d.targetMet)}</strong></div>
-              </div>
-            </div>`;
-        }).join("");
-        renderCompareChart(maxVal);
-      }
-
-      function renderCompareChart() {
-        const W = 720, H = 300, pad = 50, barW = 90, gap = 80;
-        const baseX = pad + 30;
-        const chartH = H - pad - 30;
-        const bars = TEAMS.map((team, i) => {
-          const util = COMPARE_DATA[team].util;
-          const h = Math.round(util * chartH);
-          const x = baseX + i * (barW + gap);
-          const y = (H - pad) - h;
-          const color = TEAM_BUTTON_COLORS[i];
-          return `
-            <rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="6" fill="${color}"></rect>
-            <text x="${x + barW / 2}" y="${y - 8}" text-anchor="middle" font-size="15" font-weight="900" fill="#0b3024">${Math.round(util * 100)}%</text>
-            <text x="${x + barW / 2}" y="${H - pad + 20}" text-anchor="middle" font-size="11" font-weight="700" fill="#566b62">${escapeHtml(team.replace(" Team", ""))}</text>`;
-        }).join("");
-        const gridLines = [0, 0.25, 0.5, 0.75, 1].map((g) => {
-          const y = (H - pad) - g * chartH;
-          return `<line x1="${baseX - 10}" y1="${y}" x2="${W - 20}" y2="${y}" stroke="#d6e6df" stroke-width="1"></line>
-                  <text x="${baseX - 16}" y="${y + 4}" text-anchor="end" font-size="10" fill="#9bb0a8">${Math.round(g * 100)}%</text>`;
-        }).join("");
-        el("compareChart").innerHTML = `
-          <svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:760px;">
-            ${gridLines}
-            <line x1="${baseX - 10}" y1="${H - pad}" x2="${W - 20}" y2="${H - pad}" stroke="#bdd5cc" stroke-width="2"></line>
-            ${bars}
-          </svg>`;
-      }
-
-      // ---------- KRA ----------
-      function getKraWeight(t) { return (Number(t && t.aht) || 0) / 10; }
-      function isLeadAgentName(name) { return String(name || "").includes("(Team Lead)"); }
-      function getAgentProcess(name) { const p = state.agentProfiles.find((x) => x.name === name); return p ? (p.process || "-") : "-"; }
-      function getKraReportAgents(agents) {
-        return agents.filter((a) => !isLeadAgentName(a.agent)).sort((a, b) => Number(b.overallAttainment || 0) - Number(a.overallAttainment || 0));
-      }
-      function applyKraFilters(agents) {
-        let out = agents;
-        if (state.kraSearch) out = out.filter((a) => a.agent.toLowerCase().includes(state.kraSearch.toLowerCase()));
-        if (state.kraStatusFilterValue) out = out.filter((a) => a.status === state.kraStatusFilterValue);
-        return out;
-      }
-
-      function renderKraAgentPicker() {
-        const nonLead = state.agentProfiles.filter((p) => !isLeadAgentName(p.name));
-        el("kraAgentPicker").innerHTML = ['<option value="">Select agent</option>']
-          .concat(nonLead.map((p) => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`)).join("");
-        el("kraAgentPicker").value = state.kraAgentName;
-      }
-
-      function openKraPage() {
-        if (!requireTeam()) return;
-        el("kraMonthPicker").value = el("monthPicker").value;
-        showSection("kraPage");
-        renderKraAgentPicker();
-        renderKraEntryTasks();
-        loadKraEntry();
-        renderKraReportPage(state.currentKraDashboard);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }
-
-      function renderKraReportPage(dashboard) {
-        const data = dashboard || { agents: [] };
-        state.currentKraDashboard = data;
-        const reportAgents = getKraReportAgents(data.agents || []);
-        const scoped = state.kraAgentMode === "agent" && state.kraAgentName
-          ? reportAgents.filter((a) => a.agent === state.kraAgentName)
-          : reportAgents;
-        const agents = applyKraFilters(scoped);
-        const active = agents.filter((a) => Number(a.totalVolume || 0) > 0).length;
-        const totalProd = agents.reduce((s, a) => s + Number(a.totalProduction || 0), 0);
-        const avgAtt = active ? agents.reduce((s, a) => s + (Number(a.totalVolume || 0) > 0 ? Number(a.overallAttainment || 0) : 0), 0) / active : 0;
-        const avgRating = active ? agents.reduce((s, a) => s + (Number(a.totalVolume || 0) > 0 ? Number(a.actualRating || 0) : 0), 0) / active : 0;
-        const targetMet = agents.filter((a) => Number(a.totalVolume || 0) > 0 && Number(a.overallAttainment || 0) >= 1).length;
-        const monthLabel = formatMonthLabel(data.month || el("kraMonthPicker").value);
-        const selLabel = state.kraAgentMode === "agent" && state.kraAgentName ? state.kraAgentName : "All Agents";
-
-        el("kraPageTeamName").textContent = data.team || state.selectedTeam;
-        el("kraPageMonthLabel").textContent = monthLabel;
-        el("kraReportTitle").textContent = `${selLabel} KRA`;
-        el("kraReportSubtitle").textContent = `${data.team || state.selectedTeam} · Production 60% · Quality 30% · Shrinkage 10%`;
-        el("kraReportTargetMet").textContent = `${targetMet}/${active} Target Met`;
-        el("kraPageProduction").textContent = formatNumber(totalProd, 1);
-        el("kraPageAttainment").textContent = formatPercent(avgAtt);
-        el("kraPageRating").textContent = formatNumber(avgRating, 1);
-        el("kraPageActiveAgents").textContent = formatNumber(active, 0);
-        el("kraPageWorkingDays").textContent = formatNumber(data.workingDays, 0);
-        el("kraPageTarget").textContent = formatNumber(data.target, 0);
-        el("kraAllButton").classList.toggle("active", state.kraAgentMode === "all");
-        el("kraAgentButton").classList.toggle("active", state.kraAgentMode === "agent");
-
-        renderKraSplitRows(agents, active);
-        renderKraPageRows(agents);
-        updateKraEmailRecipient();
-        updateKraEmailTemplate(monthLabel);
-      }
-
-      function renderKraSplitRows(agents, active) {
-        const avgs = ["productionContribution", "qualityContribution", "shrinkageContribution", "overallAttainment"].map((k) =>
-          active ? agents.reduce((s, a) => s + (Number(a.totalVolume || 0) > 0 ? Number(a[k] || 0) : 0), 0) / active : 0
-        );
-        const rows = [["Production Score", avgs[0], 0.6], ["Quality Score", avgs[1], 0.3], ["Shrinkage Score", avgs[2], 0.1], ["Overall Attainment", avgs[3], 1]];
-        el("kraSplitRows").innerHTML = rows.map(([label, value, max]) => {
-          const w = Math.min(100, Math.max(0, Math.round((Number(value) / max) * 100)));
-          return `<div class="kra-split-row"><div><span>${label}</span><strong>${formatPercent(value)}</strong></div><div class="kra-meter"><span style="width:${w}%"></span></div></div>`;
-        }).join("");
-      }
-
-      function renderKraPageRows(agents) {
-        if (!agents.length) { el("kraPageRows").innerHTML = `<div class="loading">No KRA data matches this selection.</div>`; return; }
-        el("kraPageRows").innerHTML = `
-          <table>
-            <thead><tr>
-              <th>#</th><th>Agent</th><th class="number">Volume</th><th class="number">Production</th><th class="number">Target</th>
-              <th class="number">Audits</th><th class="number">Quality</th><th class="number">Planned</th><th class="number">Unplanned</th>
-              <th class="number">Prod 60%</th><th class="number">Quality 30%</th><th class="number">Shrinkage 10%</th><th class="number">Attainment</th><th class="number">Rating</th><th>Status</th>
-            </tr></thead>
-            <tbody>
-              ${agents.map((a, i) => `
-                <tr>
-                  <td>${i + 1}</td>
-                  <td class="kra-agent-name"><strong>${escapeHtml(a.agent)}</strong><span>${escapeHtml(getAgentProcess(a.agent))}</span></td>
-                  <td class="number">${formatNumber(a.totalVolume, 0)}</td>
-                  <td class="number">${formatNumber(a.totalProduction, 1)}</td>
-                  <td class="number">${formatNumber(a.target, 0)}</td>
-                  <td class="number">${formatNumber(a.auditCount, 0)}</td>
-                  <td class="number">${formatPercent(a.qualityScore)}</td>
-                  <td class="number">${formatNumber(a.plannedShrinkage, 1)}</td>
-                  <td class="number">${formatNumber(a.unplannedShrinkage, 1)}</td>
-                  <td class="number">${formatPercent(a.productionContribution)}</td>
-                  <td class="number">${formatPercent(a.qualityContribution)}</td>
-                  <td class="number">${formatPercent(a.shrinkageContribution)}</td>
-                  <td class="number">${formatPercent(a.overallAttainment)}</td>
-                  <td class="number">${formatNumber(a.actualRating, 1)}</td>
-                  <td><span class="status-chip ${statusClass(a.status)}">${escapeHtml(a.status || "No data")}</span></td>
-                </tr>`).join("")}
-            </tbody>
-          </table>`;
-      }
-
-      function renderKraDashboard(dashboard) {
-        const data = dashboard || { agents: [] };
-        state.currentKraDashboard = data;
-        const visible = getKraReportAgents(getVisibleAgentRows(data.agents || []));
-        const active = visible.filter((a) => a.totalVolume > 0).length;
-        const totalProd = visible.reduce((s, a) => s + Number(a.totalProduction || 0), 0);
-        const avgAtt = active ? visible.reduce((s, a) => s + (a.totalVolume > 0 ? Number(a.overallAttainment || 0) : 0), 0) / active : 0;
-        const avgRating = active ? visible.reduce((s, a) => s + (a.totalVolume > 0 ? Number(a.actualRating || 0) : 0), 0) / active : 0;
-        const targetMet = visible.filter((a) => a.totalVolume > 0 && Number(a.overallAttainment || 0) >= 1).length;
-        el("kraProduction").textContent = formatNumber(totalProd, 1);
-        el("kraAttainment").textContent = formatPercent(avgAtt);
-        el("kraRating").textContent = formatNumber(avgRating, 1);
-        el("kraTargetMet").textContent = `${targetMet}/${active}`;
-        renderKraRows(visible);
-      }
-
-      function renderKraRows(agents) {
-        if (!agents.length) { el("kraRows").innerHTML = `<div class="loading">Select your agent above to see KRA.</div>`; return; }
-        el("kraRows").innerHTML = `
-          <table>
-            <thead><tr><th>Agent</th><th>Production</th><th>Target</th><th>Prod 60%</th><th>Quality 30%</th><th>Shrinkage 10%</th><th>Attainment</th><th>Rating</th></tr></thead>
-            <tbody>
-              ${agents.map((a) => `
-                <tr>
-                  <td>${escapeHtml(a.agent)}</td>
-                  <td class="number">${formatNumber(a.totalProduction, 1)}</td>
-                  <td class="number">${formatNumber(a.target, 0)}</td>
-                  <td class="number">${formatPercent(a.productionContribution)}</td>
-                  <td class="number">${formatPercent(a.qualityContribution)}</td>
-                  <td class="number">${formatPercent(a.shrinkageContribution)}</td>
-                  <td class="number">${formatPercent(a.overallAttainment)}</td>
-                  <td class="number">${formatNumber(a.actualRating, 1)}</td>
-                </tr>`).join("")}
-            </tbody>
-          </table>`;
-      }
-
-      function setKraAgentMode(mode) {
-        state.kraAgentMode = mode;
-        if (mode === "all") { state.kraAgentName = ""; el("kraAgentPicker").value = ""; el("kraEmailTo").value = ""; }
-        else if (!state.kraAgentName) {
-          const fb = state.agentProfiles.find((p) => !isLeadAgentName(p.name));
-          state.kraAgentName = fb ? fb.name : "";
-          el("kraAgentPicker").value = state.kraAgentName;
+      async function uploadBulkMonthlyEntries() {
+        el("bulkMessage").textContent = ""; el("bulkMessage").className = "message";
+        if (!state.selectedTeam) { el("bulkMessage").textContent = "Please select a team first."; el("bulkMessage").className = "message bad"; return; }
+        let text = el("bulkPaste").value.trim(); let xlsxFile = null;
+        if (el("bulkFile").files && el("bulkFile").files[0]) {
+          const file = el("bulkFile").files[0];
+          if (/\.xlsx$/i.test(file.name)) xlsxFile = { name: file.name, data: await readFileAsBase64(file) };
+          else text = await readTextFile(file);
         }
-        renderKraReportPage(state.currentKraDashboard);
-        loadKraEntry();
-      }
-
-      // KRA entry
-      function renderKraEntryTasks() {
-        if (!state.tasks.length) { el("kraEntryRows").innerHTML = `<div class="loading">No KRA tasks configured.</div>`; return; }
-        el("kraEntryRows").innerHTML = `
-          <div class="entry-grid">
-            <div class="entry-grid-head"><div>Task</div><div>Task Name</div><div>AHT</div><div>Count</div><div>Comment</div></div>
-            ${state.tasks.map((t, i) => `
-              <div class="task-row">
-                <div class="task-id">Task ${i + 1}</div>
-                <div class="task-name">${escapeHtml(t.name)}</div>
-                <div class="aht">${Number(t.aht).toFixed(0)} min</div>
-                <div class="task-count"><input autocomplete="off" inputmode="numeric" type="text" value="" data-kra-task-id="${escapeHtml(t.id)}"></div>
-                <div class="task-comment"><textarea rows="1" data-kra-task-comment="${escapeHtml(t.id)}" placeholder="Optional"></textarea></div>
-              </div>`).join("")}
-          </div>`;
-        el("kraEntryRows").querySelectorAll("input[data-kra-task-id]").forEach((i) => {
-          i.addEventListener("input", () => { i.value = i.value.replace(/\D/g, ""); renderKraEntryPreview(); });
-        });
-        renderKraEntryPreview();
-      }
-
-      function getKraEntryCounts() {
-        const c = {};
-        el("kraEntryRows").querySelectorAll("input[data-kra-task-id]").forEach((i) => { c[i.dataset.kraTaskId] = Number(i.value) || 0; });
-        return c;
-      }
-      function getKraEntryMetrics() {
-        const q = Number(el("kraQualityScore").value);
-        return {
-          workingDays: Number(el("kraWorkingDays").value) || 0,
-          auditCount: Number(el("kraAuditCount").value) || 0,
-          qualityScore: Number.isFinite(q) && el("kraQualityScore").value !== "" ? q / 100 : 1,
-          internalFatalErrors: Number(el("kraInternalFatal").value) || 0,
-          internalNonFatalErrors: Number(el("kraInternalNonFatal").value) || 0,
-          coachingFatalErrors: Number(el("kraCoachingFatal").value) || 0,
-          coachingNonFatalErrors: Number(el("kraCoachingNonFatal").value) || 0,
-          plannedShrinkage: Number(el("kraPlannedShrinkage").value) || 0,
-          unplannedShrinkage: Number(el("kraUnplannedShrinkage").value) || 0,
-        };
-      }
-      function calcKraPreview() {
-        const counts = getKraEntryCounts();
-        const m = getKraEntryMetrics();
-        const totalVolume = state.tasks.reduce((s, t) => s + (Number(counts[t.id]) || 0), 0);
-        const totalProduction = state.tasks.reduce((s, t) => s + (Number(counts[t.id]) || 0) * getKraWeight(t), 0);
-        const target = Math.max(0, (Number(m.workingDays) || 0) - 2) * KRA_TARGET_PER_DAY;
-        const productionContribution = target > 0 ? (totalProduction / target) * 0.6 : 0;
-        const hasFatal = m.internalFatalErrors > 0 || m.coachingFatalErrors > 0;
-        const qualityContribution = hasFatal ? 0 : m.qualityScore >= 0.99 ? 0.3 : m.qualityScore > 0.97 ? 0.24 : m.qualityScore > 0.9499 ? 0.18 : m.qualityScore > 0.92 ? 0.12 : 0;
-        const shrinkageContribution = productionContribution >= 0.6 ? 0.1 : m.unplannedShrinkage >= 1 ? 0 : m.plannedShrinkage <= 2 ? 0.1 : 0;
-        const overallAttainment = productionContribution + qualityContribution + shrinkageContribution;
-        const rawRating = overallAttainment < 0.8 ? 1 : overallAttainment >= 1.15 ? 5 : 2 + (overallAttainment - 0.8) * (3 / 0.4);
-        const actualRating = Math.max(1, Math.min(5, rawRating));
-        const status = totalVolume === 0 ? "No data" : overallAttainment >= 1 ? "On target" : overallAttainment >= 0.8 ? "Watch" : "Below target";
-        return { ...m, totalVolume, totalProduction, target, productionContribution, qualityContribution, shrinkageContribution, overallAttainment, actualRating, status };
-      }
-      function renderKraEntryPreview() {
-        const p = calcKraPreview();
-        el("kraEntryPreview").innerHTML = `
-          <div class="kra-preview-item"><span>Total Volume</span><strong>${formatNumber(p.totalVolume, 0)}</strong></div>
-          <div class="kra-preview-item"><span>Production</span><strong>${formatNumber(p.totalProduction, 1)}</strong></div>
-          <div class="kra-preview-item"><span>Target</span><strong>${formatNumber(p.target, 0)}</strong></div>
-          <div class="kra-preview-item"><span>Prod 60%</span><strong>${formatPercent(p.productionContribution)}</strong></div>
-          <div class="kra-preview-item"><span>Quality 30%</span><strong>${formatPercent(p.qualityContribution)}</strong></div>
-          <div class="kra-preview-item"><span>Shrinkage 10%</span><strong>${formatPercent(p.shrinkageContribution)}</strong></div>
-          <div class="kra-preview-item"><span>Rating</span><strong>${formatNumber(p.actualRating, 1)}</strong></div>
-          <div class="kra-preview-item"><span>Attainment</span><strong>${formatPercent(p.overallAttainment)}</strong></div>
-          <div class="kra-preview-item"><span>Status</span><strong>${escapeHtml(p.status)}</strong></div>`;
-      }
-
-      function loadKraEntry() {
-        if (!state.kraAgentName) {
-          clearKraEntryFields();
-          el("kraEntryMessage").textContent = "Select an agent to add monthly KRA data.";
-          el("kraEntryMessage").className = "message";
-          return;
-        }
-        const existing = (state.currentKraDashboard.agents || []).find((a) => a.agent === state.kraAgentName);
-        const m = existing || {};
-        fillKraMetricFields({
-          workingDays: m.workingDays || 22, auditCount: m.auditCount || 0,
-          qualityScore: m.qualityScore == null ? 1 : m.qualityScore,
-          plannedShrinkage: m.plannedShrinkage || 0, unplannedShrinkage: m.unplannedShrinkage || 0,
-        });
-        el("kraEntryMessage").textContent = "";
-        renderKraEntryPreview();
-      }
-      function clearKraEntryFields() {
-        el("kraEntryRows").querySelectorAll("input[data-kra-task-id]").forEach((i) => { i.value = ""; });
-        el("kraEntryRows").querySelectorAll("textarea[data-kra-task-comment]").forEach((t) => { t.value = ""; });
-        fillKraMetricFields({});
-        renderKraEntryPreview();
-      }
-      function fillKraMetricFields(m) {
-        el("kraWorkingDays").value = m.workingDays || "";
-        el("kraAuditCount").value = m.auditCount || "";
-        el("kraQualityScore").value = m.qualityScore == null ? "" : Number((Number(m.qualityScore) * 100).toFixed(2));
-        el("kraInternalFatal").value = m.internalFatalErrors || "";
-        el("kraInternalNonFatal").value = m.internalNonFatalErrors || "";
-        el("kraCoachingFatal").value = m.coachingFatalErrors || "";
-        el("kraCoachingNonFatal").value = m.coachingNonFatalErrors || "";
-        el("kraPlannedShrinkage").value = m.plannedShrinkage || "";
-        el("kraUnplannedShrinkage").value = m.unplannedShrinkage || "";
-      }
-
-      function saveKraEntry() {
-        if (!state.kraAgentName) { el("kraEntryMessage").textContent = "Select an agent before saving."; el("kraEntryMessage").className = "message bad"; return; }
-        const p = calcKraPreview();
-        const summary = { agent: state.kraAgentName, ...p };
-        const dash = state.currentKraDashboard;
-        const idx = (dash.agents || []).findIndex((a) => a.agent === state.kraAgentName);
-        if (idx >= 0) dash.agents[idx] = { ...dash.agents[idx], ...summary };
-        else dash.agents.push(summary);
-        renderKraReportPage(dash);
-        el("kraEntryMessage").textContent = "KRA preview updated. Deploy to Google Apps Script to persist into Sheets.";
-        el("kraEntryMessage").className = "message good";
-        showCenterToast("KRA data saved (preview).", "good");
-      }
-
-      function updateKraEmailRecipient() {
-        if (state.kraAgentMode !== "agent" || !state.kraAgentName) { el("kraEmailTo").value = ""; return; }
-        const p = state.agentProfiles.find((x) => x.name === state.kraAgentName);
-        el("kraEmailTo").value = p && p.email ? p.email : "";
-      }
-      function updateKraEmailTemplate(monthLabel) {
-        if (state.kraAgentMode !== "agent" || !state.kraAgentName) {
-          el("kraEmailSubject").value = "";
-          el("kraEmailBody").value = "Select Agent Wise KRA and choose an agent to prepare the email template.";
-          return;
-        }
-        el("kraEmailSubject").value = `Monthly Performance Report - ${monthLabel} (${state.kraAgentName})`;
-        el("kraEmailBody").value = `Hi ${state.kraAgentName},\n\nPlease find below your Monthly Performance for ${monthLabel}.`;
-      }
-      function sendKraEmail() {
-        updateKraEmailRecipient();
-        const email = el("kraEmailTo").value.trim();
-        if (!email) { el("kraEmailMessage").textContent = "Please enter an email address."; el("kraEmailMessage").className = "message bad"; return; }
-        if (state.kraAgentMode !== "agent" || !state.kraAgentName) { el("kraEmailMessage").textContent = "Select Agent Wise KRA and choose an agent first."; el("kraEmailMessage").className = "message bad"; return; }
-        el("kraEmailMessage").textContent = "Email is available after deploying in Google Apps Script.";
-        el("kraEmailMessage").className = "message";
-        showCenterToast("Email available after deployment.", "good");
+        if (!text.trim() && !xlsxFile) { el("bulkMessage").textContent = "Please choose an Excel/CSV file or paste rows."; el("bulkMessage").className = "message bad"; return; }
+        let entries = [];
+        try { if (!xlsxFile) entries = parseBulkEntries(text); }
+        catch (err) { el("bulkMessage").textContent = err.message || "Could not read uploaded rows."; el("bulkMessage").className = "message bad"; return; }
+        const payload = { team: state.selectedTeam, month: el("bulkMonthPicker").value, updateKra: el("bulkUpdateKra").checked, entries, xlsxFile };
+        if (state.localPreview) { el("bulkMessage").textContent = xlsxFile ? "Excel file ready for upload after deployment." : `${entries.length} rows ready for upload.`; el("bulkMessage").className = "message good"; showCenterToast("Bulk upload preview ready.", "good"); return; }
+        el("bulkUploadButton").disabled = true; el("bulkUploadButton").textContent = "Uploading...";
+        google.script.run
+          .withSuccessHandler((r) => { const m = r.message || `${r.uploadedRows || entries.length} rows uploaded.`; el("bulkMessage").textContent = m; el("bulkMessage").className = "message good"; el("bulkUploadButton").disabled = false; el("bulkUploadButton").textContent = "Upload Monthly Numbers"; el("bulkFile").value = ""; el("bulkPaste").value = ""; if (r.dashboard) { el("monthPicker").value = r.dashboard.month || payload.month; renderDashboard(r.dashboard); } showCenterToast(m, "good"); })
+          .withFailureHandler((e) => { el("bulkMessage").textContent = e.message || "Could not upload monthly numbers."; el("bulkMessage").className = "message bad"; el("bulkUploadButton").disabled = false; el("bulkUploadButton").textContent = "Upload Monthly Numbers"; showCenterToast(e.message || "Could not upload.", "bad"); })
+          .saveBulkMonthlyEntries(payload);
       }
 
       // ---------- Helpers ----------
       function getStatus(totalVolume, utilization) {
         if (totalVolume === 0) return "No volume";
-        if (utilization >= TARGET_UTIL) return "On target";
-        if (utilization >= TARGET_UTIL * 0.75) return "Watch";
+        if (utilization >= state.targetUtilization) return "On target";
+        if (utilization >= state.targetUtilization * 0.75) return "Watch";
         return "Below target";
       }
-      function statusClass(status) {
-        if (status === "On target") return "status-on";
-        if (status === "Watch") return "status-watch";
-        if (status === "Below target") return "status-below";
-        return "";
-      }
+      function statusClass(status) { return status === "On target" ? "status-on" : status === "Watch" ? "status-watch" : status === "Below target" ? "status-below" : ""; }
       function showMessage(text, type) { el("message").textContent = text; el("message").className = type ? `message ${type}` : "message"; }
       function showCenterToast(text, type) {
         window.clearTimeout(state.toastTimer);
@@ -1871,78 +1819,62 @@
         requestAnimationFrame(() => el("centerToast").classList.add("show"));
         state.toastTimer = window.setTimeout(() => el("centerToast").classList.remove("show"), 2600);
       }
-      function formatNumber(value, digits) {
-        return Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
-      }
+      function formatNumber(value, digits) { return Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits }); }
       function formatPercent(value) { return `${Math.round(Number(value || 0) * 100)}%`; }
-      function formatMonthLabel(value) {
-        if (!value) return "Selected month";
-        const parts = String(value).split("-");
-        if (parts.length !== 2) return value;
-        return new Date(Number(parts[0]), Number(parts[1]) - 1, 1).toLocaleString(undefined, { month: "long", year: "numeric" });
-      }
-      function escapeHtml(value) {
-        return String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-      }
+      function formatMonthLabel(value) { if (!value) return "Selected month"; const p = String(value).split("-"); if (p.length !== 2) return value; return new Date(Number(p[0]), Number(p[1]) - 1, 1).toLocaleString(undefined, { month: "long", year: "numeric" }); }
+      function escapeHtml(value) { return String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 
       // ---------- Events ----------
       function bindEvents() {
         el("entryForm").addEventListener("submit", submitEntry);
         el("clearButton").addEventListener("click", clearEntryFields);
-        el("refreshButton").addEventListener("click", () => renderDashboard(state.currentDashboard));
-        el("monthPicker").addEventListener("change", () => {
-          el("kraMonthPicker").value = el("monthPicker").value;
-          el("bulkMonthPicker").value = el("monthPicker").value;
-          renderDashboard(state.currentDashboard);
-        });
-        el("dailyDatePicker").addEventListener("change", () => renderDashboard(state.currentDashboard));
-        el("todayButton").addEventListener("click", () => { el("dailyDatePicker").value = todayISO(); renderDashboard(state.currentDashboard); });
+        el("refreshButton").addEventListener("click", refreshDashboard);
+        el("monthPicker").addEventListener("change", () => { el("kraMonthPicker").value = el("monthPicker").value; el("bulkMonthPicker").value = el("monthPicker").value; refreshDashboard(); });
+        el("dailyDatePicker").addEventListener("change", refreshDashboard);
+        el("todayButton").addEventListener("click", () => { el("dailyDatePicker").value = todayISO(); refreshDashboard(); });
         el("myViewButton").addEventListener("click", () => setDashboardView("mine"));
         el("allViewButton").addEventListener("click", () => setDashboardView("all"));
         el("agentSearch").addEventListener("input", (e) => { state.agentSearch = e.target.value; renderDashboard(state.currentDashboard); });
         el("statusFilter").addEventListener("change", (e) => { state.statusFilterValue = e.target.value; renderDashboard(state.currentDashboard); });
         el("exportUtilButton").addEventListener("click", exportUtilCsv);
-
         el("agent").addEventListener("change", () => {
           renderAgentProfile();
           if (el("agent").value && !isLeadAgentName(el("agent").value)) { state.kraAgentName = el("agent").value; renderKraAgentPicker(); }
           if (!el("agent").value || !isLeadAgentName(el("agent").value)) state.dashboardView = "mine";
           renderDashboard(state.currentDashboard);
           updateDashboardViewButtons();
+          if (el("agent").value) refreshDashboard();
         });
+        el("submittedBy").addEventListener("input", updateDashboardViewButtons);
 
-        el("navDashboard").addEventListener("click", () => { if (state.selectedTeam) showSection("app"); else el("teamChooser").hidden = false; });
-        el("bulkButton").addEventListener("click", () => { if (requireTeam()) { showSection("bulkPage"); el("bulkMonthPicker").value = el("monthPicker").value; } });
+        el("navDashboard").addEventListener("click", () => { if (state.selectedTeam) showSection("app"); else { el("teamChooser").hidden = false; document.querySelectorAll(".header-meta .pill").forEach((p) => p.classList.remove("active")); el("navDashboard").classList.add("active"); } });
+        el("bulkButton").addEventListener("click", openBulkPage);
         el("bulkBackButton").addEventListener("click", () => showSection("app"));
         el("bulkTemplateButton").addEventListener("click", downloadBulkTemplate);
-        el("bulkUploadButton").addEventListener("click", () => { el("bulkMessage").textContent = "Bulk upload is available after deploying in Google Apps Script."; el("bulkMessage").className = "message"; });
+        el("bulkUploadButton").addEventListener("click", uploadBulkMonthlyEntries);
+        el("bulkMonthPicker").addEventListener("change", () => { el("monthPicker").value = el("bulkMonthPicker").value; el("kraMonthPicker").value = el("bulkMonthPicker").value; });
 
-        el("attendanceButton").addEventListener("click", () => { if (requireTeam()) { showSection("attendancePage"); el("attMonthPicker").value = el("monthPicker").value; renderAttendance(); } });
-        el("attRefreshButton").addEventListener("click", renderAttendance);
-        el("attMonthPicker").addEventListener("change", renderAttendance);
+        el("attendanceButton").addEventListener("click", openAttendance);
+        el("attRefreshButton").addEventListener("click", refreshAttendance);
+        el("attMonthPicker").addEventListener("change", refreshAttendance);
         el("attBackButton").addEventListener("click", () => showSection("app"));
 
-        el("compareButton").addEventListener("click", () => { showSection("comparePage"); renderCompare(); });
+        el("compareButton").addEventListener("click", openCompare);
         el("compareBackButton").addEventListener("click", () => showSection("app"));
 
         el("kraButton").addEventListener("click", openKraPage);
         el("kraBackButton").addEventListener("click", () => showSection("app"));
         el("kraPrintButton").addEventListener("click", () => window.print());
         el("kraExportButton").addEventListener("click", exportKraCsv);
-        el("kraRefreshButton").addEventListener("click", () => renderKraReportPage(state.currentKraDashboard));
+        el("kraRefreshButton").addEventListener("click", refreshKraPage);
         el("kraEmailButton").addEventListener("click", sendKraEmail);
         el("kraSaveButton").addEventListener("click", saveKraEntry);
-        el("kraMonthPicker").addEventListener("change", () => { el("monthPicker").value = el("kraMonthPicker").value; loadKraEntry(); renderKraReportPage(state.currentKraDashboard); });
+        el("kraMonthPicker").addEventListener("change", () => { el("monthPicker").value = el("kraMonthPicker").value; loadKraEntry(); refreshKraPage(); });
         el("kraSearch").addEventListener("input", (e) => { state.kraSearch = e.target.value; renderKraReportPage(state.currentKraDashboard); });
         el("kraStatusFilter").addEventListener("change", (e) => { state.kraStatusFilterValue = e.target.value; renderKraReportPage(state.currentKraDashboard); });
         el("kraAllButton").addEventListener("click", () => setKraAgentMode("all"));
         el("kraAgentButton").addEventListener("click", () => setKraAgentMode("agent"));
-        el("kraAgentPicker").addEventListener("change", () => {
-          state.kraAgentName = el("kraAgentPicker").value;
-          state.kraAgentMode = state.kraAgentName ? "agent" : "all";
-          renderKraReportPage(state.currentKraDashboard);
-          loadKraEntry();
-        });
+        el("kraAgentPicker").addEventListener("change", () => { state.kraAgentName = el("kraAgentPicker").value; state.kraAgentMode = state.kraAgentName ? "agent" : "all"; renderKraReportPage(state.currentKraDashboard); loadKraEntry(); });
         document.querySelectorAll(".kra-entry-controls input").forEach((i) => i.addEventListener("input", renderKraEntryPreview));
       }
 
