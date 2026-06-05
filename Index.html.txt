@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Payment Entry</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <?!= include("Styles"); ?>
+  </head>
+  <body>
+    <main class="payment-entry-page">
+      <header class="topbar">
+        <div class="topbar-title">
+          <div class="company-brand" aria-label="Priority Technology Holdings">
+            <img
+              class="priority-logo"
+              src="https://cdn.prod.website-files.com/669d73f3127737766156fbe8/669e8ece024baad22dcf689e_Priority_Primary%20Logo_Gradient%2BLight.png"
+              alt="Priority"
+              style="height: 48px; width: auto; display: block;"
+            />
+          </div>
+          <h1>JGW CBP Process</h1>
+        </div>
+        <div class="topbar-actions">
+          <span class="user-chip" id="currentUserChip">Signing in...</span>
+          <button class="secondary-action" type="button" id="workQueueButton">My Work Queue</button>
+          <button class="secondary-action" type="button" id="backToPaymentEntryButton">Back to Payment Entry</button>
+          <div class="topbar-report-stack">
+            <div class="report-button-row">
+              <div class="reports-menu" id="otherReportsMenu" hidden>
+                <button class="secondary-action" type="button" id="otherReportsButton" aria-expanded="false">Reports</button>
+                <div class="reports-menu-list" id="otherReportsList" hidden>
+                  <button class="secondary-action" type="button" id="dashboardReportButton">Dashboard</button>
+                  <button class="secondary-action" type="button" id="bulkUploadButton">Bulk Excel Upload</button>
+                  <button class="secondary-action" type="button" id="followupReportButton">Follow-up Report</button>
+                  <button class="secondary-action" type="button" id="newPaymentReportButton">New Payment Report</button>
+                  <button class="secondary-action" type="button" id="assignWorkReportButton">Assign Work</button>
+                  <button class="secondary-action" type="button" id="agentReportButton">Agent Report</button>
+                  <button class="secondary-action" type="button" id="monthlyArchiveButton">Monthly Archive</button>
+                  <button class="secondary-action" type="button" id="syncTestButton">Test Sheet Sync</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <form id="recordForm" class="form-layout" novalidate>
+        <section class="form-section dashboard-panel report-panel" id="dashboardPanel" hidden>
+          <div class="dashboard-head">
+            <div>
+              <span class="dashboard-kicker">Dashboard</span>
+              <h2>JGW CBP Management Dashboard</h2>
+              <p id="dashboardHeaderMeta">Live CRM operating view</p>
+            </div>
+            <div class="dashboard-controls">
+              <label>
+                CBP Due Month
+                <select name="dashboardDueRange">
+                </select>
+              </label>
+              <button class="secondary-action" type="button" id="refreshDashboardButton">Refresh</button>
+            </div>
+          </div>
+          <span class="field-error extra-wide" id="dashboardStatus" aria-live="polite"></span>
+          <div class="management-dashboard-grid" id="dashboardGrid"></div>
+        </section>
+
+        <section class="form-section followup-report-panel" id="followupReportPanel" hidden>
+          <h2>Follow-up Export</h2>
+          <div class="field-grid">
+            <label>
+              Start Follow up Date
+              <span class="date-control">
+                <input name="followupExportStartDate" class="date-display" placeholder="MM/dd/yyyy" readonly />
+                <button class="date-picker-button" type="button" data-date-for="followupExportStartDate">Pick</button>
+                <input class="native-date-picker" type="date" data-date-picker="followupExportStartDate" tabindex="-1" aria-hidden="true" />
+              </span>
+            </label>
+            <label>
+              End Follow up Date
+              <span class="date-control">
+                <input name="followupExportEndDate" class="date-display" placeholder="MM/dd/yyyy" readonly />
+                <button class="date-picker-button" type="button" data-date-for="followupExportEndDate">Pick</button>
+                <input class="native-date-picker" type="date" data-date-picker="followupExportEndDate" tabindex="-1" aria-hidden="true" />
+              </span>
+            </label>
+            <label>
+              Start Payment Due Date
+              <span class="date-control">
+                <input name="paymentDueExportStartDate" class="date-display" placeholder="MM/dd/yyyy" readonly />
+                <button class="date-picker-button" type="button" data-date-for="paymentDueExportStartDate">Pick</button>
+                <input class="native-date-picker" type="date" data-date-picker="paymentDueExportStartDate" tabindex="-1" aria-hidden="true" />
+              </span>
+            </label>
+            <label>
+              End Payment Due Date
+              <span class="date-control">
+                <input name="paymentDueExportEndDate" class="date-display" placeholder="MM/dd/yyyy" readonly />
+                <button class="date-picker-button" type="button" data-date-for="paymentDueExportEndDate">Pick</button>
+                <input class="native-date-picker" type="date" data-date-picker="paymentDueExportEndDate" tabindex="-1" aria-hidden="true" />
+              </span>
+            </label>
+            <div class="inline-action">
+              <button class="secondary-action" type="button" id="exportFollowupsButton">Export Follow-ups</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section report-panel" id="newPaymentReportPanel" hidden>
+          <h2>New Payment Report</h2>
+          <div class="field-grid">
+            <label class="wide">
+              Daily Sheet URL
+              <input name="newPaymentSheetUrl" type="url" placeholder="Paste daily Google Sheet URL" />
+            </label>
+            <label class="wide">
+              Upload Daily Excel / CSV
+              <input name="newPaymentExcelFile" type="file" accept=".xlsx,.xls,.csv,text/csv" />
+            </label>
+            <label>
+              Sheet Tab Name
+              <input name="newPaymentSheetName" placeholder="Optional" />
+            </label>
+            <div class="inline-action">
+              <button class="secondary-action" type="button" id="exportNewPaymentsButton">Export New Payments</button>
+            </div>
+            <div class="inline-action">
+              <button class="primary-action" type="button" id="importNewCasesButton">Import New Cases</button>
+            </div>
+            <div class="import-progress extra-wide" id="newPaymentImportProgress" hidden aria-live="polite">
+              <div class="import-progress-meta">
+                <strong id="newPaymentImportProgressText">Preparing import...</strong>
+                <span id="newPaymentImportProgressPercent">0%</span>
+              </div>
+              <div class="import-progress-track">
+                <div class="import-progress-bar" id="newPaymentImportProgressBar"></div>
+              </div>
+            </div>
+            <span class="field-error extra-wide" id="newPaymentImportStatus" aria-live="polite"></span>
+          </div>
+        </section>
+
+        <section class="form-section report-panel" id="agentReportPanel" hidden>
+          <h2>Agent Report</h2>
+          <div class="field-grid">
+            <label>
+              Start Worked Date
+              <span class="date-control">
+                <input name="agentReportStartDate" class="date-display" placeholder="MM/dd/yyyy" readonly />
+                <button class="date-picker-button" type="button" data-date-for="agentReportStartDate">Pick</button>
+                <input class="native-date-picker" type="date" data-date-picker="agentReportStartDate" tabindex="-1" aria-hidden="true" />
+              </span>
+            </label>
+            <label>
+              End Worked Date
+              <span class="date-control">
+                <input name="agentReportEndDate" class="date-display" placeholder="MM/dd/yyyy" readonly />
+                <button class="date-picker-button" type="button" data-date-for="agentReportEndDate">Pick</button>
+                <input class="native-date-picker" type="date" data-date-picker="agentReportEndDate" tabindex="-1" aria-hidden="true" />
+              </span>
+            </label>
+            <div class="inline-action">
+              <button class="secondary-action" type="button" id="exportAgentDetailsButton">Export Agent Details</button>
+            </div>
+            <div class="inline-action">
+              <button class="secondary-action" type="button" id="exportTeamCountButton">Export Team Count</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section report-panel" id="workQueuePanel" hidden>
+          <h2>My Work Queue</h2>
+          <div class="queue-source-tabs" role="group" aria-label="Work queue type">
+            <button class="secondary-action active" type="button" data-work-queue-source="Follow-up">Follow up cases</button>
+            <button class="secondary-action" type="button" data-work-queue-source="New Case">New cases</button>
+          </div>
+          <div class="field-grid">
+            <label>
+              Status
+              <select name="workQueueStatus">
+                <option value="Open">Open</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+                <option value="All">All</option>
+              </select>
+            </label>
+            <div class="inline-action">
+              <button class="secondary-action" type="button" id="refreshWorkQueueButton">Refresh Queue</button>
+            </div>
+            <span class="field-error extra-wide" id="workQueueStatusText" aria-live="polite"></span>
+          </div>
+          <div class="work-summary-panel queue-summary-panel" id="workQueueMetrics" hidden>
+            <div class="work-summary-card">
+              <span>Assigned Follow-up</span>
+              <strong id="workQueueFollowupAssigned">0</strong>
+            </div>
+            <div class="work-summary-card">
+              <span>Assigned New</span>
+              <strong id="workQueueNewAssigned">0</strong>
+            </div>
+            <div class="work-summary-card">
+              <span>Same Day Payments</span>
+              <strong id="workQueueSameDay">0</strong>
+            </div>
+            <div class="work-summary-card">
+              <span>Completed</span>
+              <strong id="workQueueCompleted">0</strong>
+            </div>
+            <div class="work-summary-card">
+              <span>Remaining</span>
+              <strong id="workQueueRemaining">0</strong>
+            </div>
+            <div class="work-agent-breakdown extra-wide" id="workQueueCreditorBreakdown"></div>
+          </div>
+          <div class="bulk-client-review" id="workQueueTablePanel" hidden>
+            <div class="panel-header">
+              <h3>Assigned Cases</h3>
+              <span id="workQueueSummary"></span>
+            </div>
+            <div class="bulk-review-table-shell">
+              <table class="bulk-review-table work-table">
+                <thead>
+                  <tr>
+                    <th>Client</th>
+                    <th>Schedule</th>
+                    <th>Dates</th>
+                    <th>Amount</th>
+                    <th>Creditor</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="workQueueBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section report-panel" id="assignWorkPanel" hidden>
+          <h2>Assign Work</h2>
+          <div class="field-grid assign-work-grid">
+            <label>
+              Work Source
+              <select name="assignWorkSource">
+                <option value="Follow-up">Follow-ups</option>
+                <option value="New Case">New Cases from Sheet</option>
+              </select>
+            </label>
+            <label>
+              Assign To
+              <select name="assignWorkAgentEmail">
+                <option value="">Select agent</option>
+              </select>
+            </label>
+            <label>
+              Creditor
+              <select name="assignWorkCreditorFilter" disabled>
+                <option value="">All creditors</option>
+              </select>
+            </label>
+            <label>
+              Start Date
+              <span class="date-control">
+                <input name="assignFollowupStartDate" class="date-display" placeholder="MM/dd/yyyy" readonly />
+                <button class="date-picker-button" type="button" data-date-for="assignFollowupStartDate">Pick</button>
+                <input class="native-date-picker" type="date" data-date-picker="assignFollowupStartDate" tabindex="-1" aria-hidden="true" />
+              </span>
+            </label>
+            <label>
+              End Date
+              <span class="date-control">
+                <input name="assignFollowupEndDate" class="date-display" placeholder="MM/dd/yyyy" readonly />
+                <button class="date-picker-button" type="button" data-date-for="assignFollowupEndDate">Pick</button>
+                <input class="native-date-picker" type="date" data-date-picker="assignFollowupEndDate" tabindex="-1" aria-hidden="true" />
+              </span>
+            </label>
+            <div class="assign-work-actions">
+              <button class="secondary-action" type="button" id="loadAssignableWorkButton">Load Work</button>
+              <button class="primary-action" type="button" id="assignSelectedWorkButton">Assign Selected</button>
+            </div>
+            <span class="field-error extra-wide" id="assignWorkStatus" aria-live="polite"></span>
+          </div>
+          <div class="work-summary-panel" id="assignWorkMetrics" hidden>
+            <div class="work-summary-card work-wheel-card">
+              <div class="work-wheel" id="assignWorkWheel"><span>0%</span></div>
+              <div>
+                <strong>Selected Range</strong>
+                <span id="assignWorkWheelLabel">No work loaded</span>
+              </div>
+            </div>
+            <div class="work-summary-card">
+              <span>Payments Due</span>
+              <strong id="assignWorkDueCount">0</strong>
+            </div>
+            <div class="work-summary-card">
+              <span>Assigned</span>
+              <strong id="assignWorkAssignedCount">0</strong>
+            </div>
+            <div class="work-summary-card">
+              <span>Completed</span>
+              <strong id="assignWorkCompletedCount">0</strong>
+            </div>
+            <div class="work-summary-card">
+              <span>Still Pending</span>
+              <strong id="assignWorkRemainingCount">0</strong>
+            </div>
+            <div class="work-agent-breakdown extra-wide" id="assignWorkAgentBreakdown"></div>
+          </div>
+          <div class="bulk-client-review" id="assignWorkTablePanel" hidden>
+            <div class="panel-header">
+              <h3>Available Cases</h3>
+              <div class="work-selection-tools">
+                <span id="assignWorkSummary"></span>
+                <span id="assignSelectedCount">0 selected</span>
+                <button class="small-button" type="button" id="assignSelectAllButton">Select All</button>
+                <button class="small-button" type="button" id="assignClearSelectionButton">Clear</button>
+              </div>
+            </div>
+            <div class="bulk-review-table-shell">
+              <table class="bulk-review-table work-table">
+                <thead>
+                  <tr>
+                    <th>Select</th>
+                    <th>Client</th>
+                    <th>Schedule</th>
+                    <th>Dates</th>
+                    <th>Amount</th>
+                    <th>Creditor</th>
+                  </tr>
+                </thead>
+                <tbody id="assignWorkBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section report-panel" id="bulkUploadPanel" hidden>
+          <h2>Bulk Excel Upload</h2>
+          <div class="field-grid">
+            <label class="wide required">
+              Upload Payment Excel / CSV
+              <input name="bulkPaymentExcelFile" type="file" accept=".xlsx,.xls,.csv,text/csv" />
+            </label>
+            <fieldset class="segmented bulk-outcome-control required">
+              <legend>Default Outcome</legend>
+              <label><input type="radio" name="bulkPaymentOutcome" value="Bulk Payments Setup Successfully" checked /><span>Bulk Payments Setup Successfully</span></label>
+              <label><input type="radio" name="bulkPaymentOutcome" value="Awaiting Creditor Response" /><span>Awaiting Creditor Response</span></label>
+            </fieldset>
+            <span class="field-error extra-wide" id="bulkUploadError" aria-live="polite"></span>
+            <div class="inline-action">
+              <button class="secondary-action" type="button" id="analyzeBulkPaymentsButton">Review Clients</button>
+            </div>
+            <div class="inline-action">
+              <button class="secondary-action" type="button" id="syncBulkPaymentsButton">Sync Bulk Upload</button>
+            </div>
+          </div>
+          <div class="bulk-client-review" id="bulkClientReviewPanel" hidden>
+            <div class="panel-header">
+              <h3>Client Review</h3>
+              <span id="bulkClientReviewSummary"></span>
+            </div>
+            <div class="bulk-review-table-shell">
+              <table class="bulk-review-table">
+                <thead>
+                  <tr>
+                    <th>Client</th>
+                    <th>Schedules</th>
+                    <th>Outcome</th>
+                    <th>Setup</th>
+                    <th>Reason</th>
+                  </tr>
+                </thead>
+                <tbody id="bulkClientReviewBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section payment-entry-only">
+          <h2>Client Details</h2>
+          <div class="field-grid">
+            <label class="wide">
+              Client ID
+              <input name="clientLookupQuery" placeholder="Enter Client ID" />
+            </label>
+            <span class="field-error extra-wide" id="clientLookupError" aria-live="polite"></span>
+            <label class="required">
+              Subscriber
+              <select name="subscriber" required>
+                <option value="">Select subscriber</option>
+                <option value="JGW">JGW</option>
+                <option value="NSL">NSL</option>
+              </select>
+            </label>
+            <label class="required">Client ID<input name="clientId" required /></label>
+            <label class="required wide">Client Full Name<input name="clientFullName" required /></label>
+          </div>
+        </section>
+
+        <input type="hidden" name="paymentAmount" />
+        <input type="hidden" name="paymentDueDateNew" />
+        <input type="hidden" name="paymentOutcome" value="Payment Setup Completed" />
+
+        <section class="form-section payment-entry-only">
+          <h2>CRM Schedule ID</h2>
+          <div class="field-grid">
+            <input type="hidden" name="dmScheduleMode" value="Multiple" />
+            <input type="hidden" name="dmPaymentScheduleId" />
+            <div class="dm-multiple-panel extra-wide" id="dmMultiplePanel">
+              <label class="required">
+                How many CRM Payment Schedule IDs?
+                <input id="dmPaymentScheduleCount" inputmode="numeric" min="1" max="250" placeholder="Auto count from pasted IDs" readonly />
+              </label>
+              <div class="inline-action checking-account-action">
+                <button class="secondary-action" type="button" id="checkingAccountButton">Checking Account</button>
+              </div>
+              <div class="bulk-paste-control">
+                <span class="bulk-paste-title">Paste All CRM Payment Schedule IDs</span>
+                <textarea id="bulkCrmScheduleIds" hidden></textarea>
+                <div class="bulk-preview-scroll" id="bulkCrmPreview" tabindex="0" role="textbox" aria-label="Paste All CRM Payment Schedule IDs" aria-readonly="false" contenteditable="true" spellcheck="false"></div>
+              </div>
+              <div class="inline-action">
+                <button class="secondary-action" type="button" id="applyBulkCrmIdsButton">Apply IDs</button>
+              </div>
+              <div class="dm-schedule-list" id="dmScheduleList"></div>
+              <span class="field-error" id="dmScheduleError" aria-live="polite"></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section payment-entry-only">
+          <h2>Creditor</h2>
+          <div class="field-grid">
+            <label class="required wide">Creditor Name<input name="creditorName" required /></label>
+            <label>Cred Contact Number<input name="credContactWorkNumber" type="tel" /></label>
+            <label class="required wide">DEBT_ACCOUNT_NUMBER<input name="currentAccountNumbers" required /></label>
+            <label class="wide">ORIGINAL_ACCOUNT_NUMBER<input name="originalAccountNumber" /></label>
+            <label class="wide">Cred Email Address<input name="credEmailAddress" type="email" /></label>
+          </div>
+        </section>
+
+        <section class="form-section payment-entry-only">
+          <h2>Checking Account Details</h2>
+          <div class="field-grid">
+            <label class="wide">Routing Number<input name="routingNumber" value="053101561" /></label>
+            <label class="wide">Checking Account Number<input name="checkingAccountNumber" value="7289000" /></label>
+          </div>
+        </section>
+
+        <section class="form-section payment-entry-only">
+          <h2>Receipt & Notes</h2>
+          <div class="field-grid">
+            <label class="required">
+              Agent Name
+              <input name="agentName" required readonly />
+            </label>
+            <label>
+              CFT Team Payment Worked date
+              <input name="receivedOnDate" class="date-display" placeholder="MM/dd/yyyy" readonly />
+            </label>
+            <fieldset class="segmented payment-mode-control required">
+              <legend>Payment Setup Mode</legend>
+              <label><input type="radio" name="paymentSetupMode" value="CBP" checked required /><span>CBP</span></label>
+              <label><input type="radio" name="paymentSetupMode" value="Web" required /><span>Web</span></label>
+            </fieldset>
+            <label class="required" id="ringCentralMasterIdLabel">Ring Central Master ID<input name="ringCentralMasterId" required /></label>
+            <label class="required" id="repNameLabel">Rep<input name="repName" required /></label>
+            <label class="required" id="confirmationNumberLabel">Conf#<input name="confirmationNumber" required /></label>
+            <div class="extra-wide outcome-actions">
+              <button class="secondary-action" type="button" id="regenerateCommentsButton">Regenerate Comments</button>
+              <button class="secondary-action outcome-button" type="button" id="escalationFollowupButton">Escalation/Follow up Needed</button>
+              <button class="secondary-action outcome-button" type="button" id="escalationNoFollowupButton">Escalation/No Follow up Needed</button>
+            </div>
+            <label class="required extra-wide">
+              Comments
+              <textarea name="comments" required rows="4"></textarea>
+              <span class="field-error" id="amountMatchError" aria-live="polite"></span>
+            </label>
+            <label class="required">
+              Term Breakdown
+              <select name="termBreakdown" required disabled>
+                <option value="">Select term</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+                <option value="12">12</option>
+                <option value="13">13</option>
+                <option value="14">14</option>
+                <option value="15">15</option>
+                <option value="16">16</option>
+                <option value="17">17</option>
+                <option value="18">18</option>
+                <option value="19">19</option>
+                <option value="20">20</option>
+                <option value="21">21</option>
+                <option value="22">22</option>
+                <option value="23">23</option>
+                <option value="24">24</option>
+                <option value="Payoff">Payoff</option>
+              </select>
+            </label>
+            <label class="required">
+              Total Payment Setup
+              <select name="totalPaymentSetup" required>
+                <option value="">Select setup</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+                <option value="12">12</option>
+                <option value="13">13</option>
+                <option value="14">14</option>
+                <option value="15">15</option>
+                <option value="16">16</option>
+                <option value="17">17</option>
+                <option value="18">18</option>
+                <option value="19">19</option>
+                <option value="20">20</option>
+                <option value="21">21</option>
+                <option value="22">22</option>
+                <option value="23">23</option>
+                <option value="24">24</option>
+                <option value="Payoff">Payoff</option>
+              </select>
+            </label>
+            <fieldset class="segmented required">
+              <legend>Is Follow-up Required</legend>
+              <label><input type="radio" name="isFollowupRequired" value="Yes" required /><span>Yes</span></label>
+              <label><input type="radio" name="isFollowupRequired" value="No" checked required /><span>No</span></label>
+              <span class="field-error" id="followupRuleError" aria-live="polite"></span>
+            </fieldset>
+            <label class="required" id="followupDateLabel">
+              Follow up Date
+              <span class="date-control">
+                <input name="followupDate" id="followupDate" class="date-display" value="N/A" readonly required />
+                <button class="date-picker-button" type="button" data-date-for="followupDate" disabled>Pick</button>
+                <input class="native-date-picker" type="date" data-date-picker="followupDate" tabindex="-1" aria-hidden="true" disabled />
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <div class="form-actions payment-entry-only">
+          <button class="secondary-action" type="button" id="exportCsvButton">Export CSV</button>
+          <button class="secondary-action" type="button" id="resetFormButton">Clear</button>
+          <button class="primary-action" type="submit">Save Payment Entry</button>
+        </div>
+        <p class="crm-copyright payment-entry-only">© 2026 Priority Technology Holdings, Inc. All rights reserved.</p>
+        <div class="save-status payment-entry-only" id="saveStatus" role="status" aria-live="polite"></div>
+      </form>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <?!= include("App"); ?>
+  </body>
+</html>

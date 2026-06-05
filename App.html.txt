@@ -1,0 +1,1230 @@
+<script>
+(function () {
+  "use strict";
+
+  /* ─────────────────────────────────────────────────────────
+     Utilities
+  ───────────────────────────────────────────────────────── */
+  var toastTimer;
+  function showToast(msg, type, duration) {
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    el.className = "toast show" + (type ? " " + type : "");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.className = "toast"; }, duration || 3000);
+  }
+
+  function setSaveStatus(msg, type) {
+    var el = document.getElementById("saveStatus");
+    if (!el) return;
+    el.textContent = msg;
+    el.className = "save-status " + (type || "");
+  }
+
+  function setStatus(id, msg, type) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.className = (el.className.replace(/\b(ok|err|info)\b/g, "")).trim() + (type ? " " + type : "");
+  }
+
+  function esc(str) {
+    return String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function fmtUsDate(isoOrSerial) {
+    if (!isoOrSerial) return "";
+    var s = String(isoOrSerial);
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+      var p = s.split("T")[0].split("-");
+      return p[1] + "/" + p[2] + "/" + p[0];
+    }
+    if (/^\d+$/.test(s)) {
+      var epoch = (Number(s) - 25569) * 86400000;
+      var d = new Date(epoch);
+      return (d.getUTCMonth()+1) + "/" + d.getUTCDate() + "/" + d.getUTCFullYear();
+    }
+    return s;
+  }
+
+  function todayUsDate() {
+    var d = new Date();
+    return (d.getMonth()+1) + "/" + d.getDate() + "/" + d.getFullYear();
+  }
+
+  function isoToUs(iso) {
+    if (!iso) return "";
+    var p = iso.split("-");
+    return p[1] + "/" + p[2] + "/" + p[0];
+  }
+
+  function usToIso(us) {
+    if (!us || us === "N/A") return "";
+    var p = us.split("/");
+    if (p.length !== 3) return "";
+    return p[2] + "-" + p[0].padStart(2,"0") + "-" + p[1].padStart(2,"0");
+  }
+
+  function fmtCurrency(v) {
+    var n = parseFloat(String(v).replace(/[^0-9.-]/g, ""));
+    if (isNaN(n)) return String(v || "");
+    return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Date picker wiring
+  ───────────────────────────────────────────────────────── */
+  function wireAllDatePickers() {
+    document.querySelectorAll(".date-picker-button").forEach(function (btn) {
+      var fieldName = btn.getAttribute("data-date-for");
+      if (!fieldName) return;
+      btn.addEventListener("click", function () {
+        var native = document.querySelector('[data-date-picker="' + fieldName + '"]');
+        if (native && !native.disabled) native.click();
+      });
+    });
+    document.querySelectorAll(".native-date-picker").forEach(function (native) {
+      var fieldName = native.getAttribute("data-date-picker");
+      if (!fieldName) return;
+      native.addEventListener("change", function () {
+        var display = document.querySelector('[name="' + fieldName + '"]');
+        if (display) display.value = isoToUs(native.value);
+        // special: followupDate hidden field sync
+        if (fieldName === "followupDate") {
+          document.querySelector('[name="followupDate"]').value = isoToUs(native.value);
+        }
+      });
+    });
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Panel navigation
+  ───────────────────────────────────────────────────────── */
+  var PAYMENT_ENTRY_SELECTORS = ".payment-entry-only, .form-section.payment-entry-only, .form-actions.payment-entry-only, .save-status.payment-entry-only, p.payment-entry-only";
+
+  function showPanel(panelId) {
+    var panels = [
+      "dashboardPanel","followupReportPanel","newPaymentReportPanel",
+      "agentReportPanel","workQueuePanel","assignWorkPanel","bulkUploadPanel"
+    ];
+    var isReport = panels.indexOf(panelId) !== -1;
+    panels.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.hidden = (id !== panelId);
+    });
+    document.querySelectorAll(PAYMENT_ENTRY_SELECTORS).forEach(function (el) {
+      el.hidden = isReport;
+    });
+    document.getElementById("backToPaymentEntryButton").hidden = !isReport;
+    document.getElementById("workQueueButton").hidden = (panelId === "workQueuePanel");
+    closeReportsMenu();
+  }
+
+  function showPaymentEntry() {
+    var panels = [
+      "dashboardPanel","followupReportPanel","newPaymentReportPanel",
+      "agentReportPanel","workQueuePanel","assignWorkPanel","bulkUploadPanel"
+    ];
+    panels.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.hidden = true;
+    });
+    document.querySelectorAll(PAYMENT_ENTRY_SELECTORS).forEach(function (el) {
+      el.hidden = false;
+    });
+    document.getElementById("backToPaymentEntryButton").hidden = true;
+    document.getElementById("workQueueButton").hidden = false;
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Reports menu
+  ───────────────────────────────────────────────────────── */
+  function closeReportsMenu() {
+    document.getElementById("otherReportsList").hidden = true;
+    document.getElementById("otherReportsButton").setAttribute("aria-expanded","false");
+  }
+
+  function initReportsMenu() {
+    var menu = document.getElementById("otherReportsMenu");
+    var btn  = document.getElementById("otherReportsButton");
+    var list = document.getElementById("otherReportsList");
+    if (!menu || !btn || !list) return;
+    menu.hidden = false;
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var open = list.hidden;
+      list.hidden = !open;
+      btn.setAttribute("aria-expanded", String(!open));
+    });
+    document.addEventListener("click", function () { closeReportsMenu(); });
+    list.addEventListener("click", function (e) { e.stopPropagation(); });
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Current user
+  ───────────────────────────────────────────────────────── */
+  var currentUser = null;
+  var isAdmin = false;
+
+  function initUser() {
+    google.script.run
+      .withSuccessHandler(function (profile) {
+        currentUser = profile;
+        isAdmin = !!profile.isAdmin;
+        document.getElementById("currentUserChip").textContent = profile.name || profile.email || "Unknown";
+        document.querySelector('[name="agentName"]').value = profile.name || profile.email || "";
+        if (isAdmin) {
+          document.getElementById("otherReportsMenu").hidden = false;
+        } else {
+          document.getElementById("otherReportsMenu").hidden = false;
+          // hide admin-only items
+          ["dashboardReportButton","assignWorkReportButton","monthlyArchiveButton","syncTestButton"].forEach(function(id){
+            var el = document.getElementById(id);
+            if (el) el.hidden = true;
+          });
+        }
+      })
+      .withFailureHandler(function (err) {
+        document.getElementById("currentUserChip").textContent = "Error";
+        showToast("Could not load user: " + err.message, "err");
+      })
+      .getCurrentCrmUser();
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Presence polling
+  ───────────────────────────────────────────────────────── */
+  function startPresencePolling() {
+    function ping() {
+      google.script.run.updateCrmPresence();
+    }
+    ping();
+    setInterval(ping, 60000);
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Client lookup
+  ───────────────────────────────────────────────────────── */
+  var lookupDebounce;
+
+  function initClientLookup() {
+    var input = document.querySelector('[name="clientLookupQuery"]');
+    if (!input) return;
+    input.addEventListener("input", function () {
+      clearTimeout(lookupDebounce);
+      var q = input.value.trim();
+      if (!q) return;
+      lookupDebounce = setTimeout(function () { doClientLookup(q); }, 500);
+    });
+  }
+
+  function doClientLookup(query) {
+    setStatus("clientLookupError", "Looking up client…");
+    google.script.run
+      .withSuccessHandler(function (result) {
+        if (!result || !result.rows || !result.rows.length) {
+          setStatus("clientLookupError", "No client found.", "err");
+          return;
+        }
+        applyClientData(result.rows[0]);
+        if (result.warning) setStatus("clientLookupError", result.warning);
+        else setStatus("clientLookupError", "");
+      })
+      .withFailureHandler(function (err) {
+        setStatus("clientLookupError", err.message, "err");
+      })
+      .lookupClientReference(query);
+  }
+
+  function applyClientData(row) {
+    var fields = {
+      subscriber:           row.subscriber           || row.Subscriber          || "",
+      clientId:             row.clientId             || row["Client ID"]        || "",
+      clientFullName:       row.clientFullName       || row["Client Full Name"] || "",
+      creditorName:         row.creditorName         || row["CREDITOR_NAME"]    || row["Creditor Name"] || "",
+      currentAccountNumbers: row.currentAccountNumbers || row["DEBT_ACCOUNT_NUMBER"] || "",
+      originalAccountNumber: row.originalAccountNumber || row["ORIGINAL_ACCOUNT_NUMBER"] || ""
+    };
+    Object.keys(fields).forEach(function (name) {
+      var el = document.querySelector('[name="' + name + '"]');
+      if (el && fields[name]) el.value = fields[name];
+    });
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     CRM Schedule IDs (bulk paste)
+  ───────────────────────────────────────────────────────── */
+  var scheduledIds = [];
+
+  function initBulkCrmIds() {
+    var preview = document.getElementById("bulkCrmPreview");
+    var applyBtn = document.getElementById("applyBulkCrmIdsButton");
+    var countInput = document.getElementById("dmPaymentScheduleCount");
+    var listEl = document.getElementById("dmScheduleList");
+
+    if (!preview || !applyBtn) return;
+
+    preview.addEventListener("input", function () {
+      var raw = preview.textContent || "";
+      var ids = parseScheduleIds(raw);
+      countInput.value = ids.length || "";
+    });
+
+    preview.addEventListener("paste", function (e) {
+      e.preventDefault();
+      var text = (e.clipboardData || window.clipboardData).getData("text");
+      document.execCommand("insertText", false, text);
+    });
+
+    applyBtn.addEventListener("click", function () {
+      var raw = preview.textContent || "";
+      var ids = parseScheduleIds(raw);
+      if (!ids.length) {
+        setStatus("dmScheduleError", "No valid schedule IDs found.", "err");
+        return;
+      }
+      setStatus("dmScheduleError", "");
+      scheduledIds = ids;
+      countInput.value = ids.length;
+      renderScheduleList(ids, listEl);
+    });
+
+    document.getElementById("checkingAccountButton").addEventListener("click", function () {
+      document.querySelector('[name="routingNumber"]').value = "053101561";
+      document.querySelector('[name="checkingAccountNumber"]').value = "7289000";
+    });
+  }
+
+  function parseScheduleIds(raw) {
+    return raw.split(/[\n\r\t,;]+/)
+      .map(function (s) { return s.trim(); })
+      .filter(function (s) { return s.length > 0; });
+  }
+
+  function renderScheduleList(ids, container) {
+    container.innerHTML = "";
+    ids.forEach(function (id, i) {
+      var div = document.createElement("div");
+      div.className = "dm-schedule-item";
+      div.innerHTML =
+        '<div class="dm-schedule-id-label">Schedule ' + (i+1) + '</div>' +
+        '<label>ID<input name="dmScheduleId_' + i + '" value="' + esc(id) + '" readonly /></label>' +
+        '<label>Amount ($)<input name="dmAmount_' + i + '" inputmode="decimal" placeholder="0.00" /></label>' +
+        '<label>Due Date<span class="date-control">' +
+          '<input name="dmDueDate_' + i + '" class="date-display" placeholder="MM/dd/yyyy" readonly />' +
+          '<button class="date-picker-button" type="button" data-date-for="dmDueDate_' + i + '">Pick</button>' +
+          '<input class="native-date-picker" type="date" data-date-picker="dmDueDate_' + i + '" tabindex="-1" aria-hidden="true" />' +
+        '</span></label>' +
+        '<label>Follow-up Date<span class="date-control">' +
+          '<input name="dmFollowupDate_' + i + '" class="date-display" placeholder="MM/dd/yyyy" readonly />' +
+          '<button class="date-picker-button" type="button" data-date-for="dmFollowupDate_' + i + '">Pick</button>' +
+          '<input class="native-date-picker" type="date" data-date-picker="dmFollowupDate_' + i + '" tabindex="-1" aria-hidden="true" />' +
+        '</span></label>' +
+        '<label>Comment<input name="dmComment_' + i + '" /></label>';
+      container.appendChild(div);
+    });
+    wireAllDatePickers();
+  }
+
+  function collectScheduleRows() {
+    return scheduledIds.map(function (id, i) {
+      return {
+        dmScheduleId:   id,
+        paymentAmount:  document.querySelector('[name="dmAmount_' + i + '"]')   ? document.querySelector('[name="dmAmount_' + i + '"]').value   : "",
+        paymentDueDate: document.querySelector('[name="dmDueDate_' + i + '"]')  ? document.querySelector('[name="dmDueDate_' + i + '"]').value  : "",
+        followupDate:   document.querySelector('[name="dmFollowupDate_' + i + '"]') ? document.querySelector('[name="dmFollowupDate_' + i + '"]').value : "",
+        comment:        document.querySelector('[name="dmComment_' + i + '"]')  ? document.querySelector('[name="dmComment_' + i + '"]').value  : ""
+      };
+    });
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Comments auto-generation
+  ───────────────────────────────────────────────────────── */
+  function initComments() {
+    document.getElementById("regenerateCommentsButton").addEventListener("click", generateComments);
+    document.getElementById("escalationFollowupButton").addEventListener("click", function () {
+      toggleOutcomeButton(this, "escalationFollowupButton", "escalationNoFollowupButton");
+      generateComments();
+    });
+    document.getElementById("escalationNoFollowupButton").addEventListener("click", function () {
+      toggleOutcomeButton(this, "escalationNoFollowupButton", "escalationFollowupButton");
+      generateComments();
+    });
+    document.querySelector('[name="paymentSetupMode"]') && document.querySelectorAll('[name="paymentSetupMode"]').forEach(function(r){
+      r.addEventListener("change", updateFieldVisibility);
+    });
+    document.querySelector('[name="isFollowupRequired"]') && document.querySelectorAll('[name="isFollowupRequired"]').forEach(function(r){
+      r.addEventListener("change", function(){
+        updateFollowupState();
+        generateComments();
+      });
+    });
+  }
+
+  function toggleOutcomeButton(clicked, clickedId, otherId) {
+    clicked.classList.toggle("active");
+    var other = document.getElementById(otherId);
+    if (other) other.classList.remove("active");
+  }
+
+  function generateComments() {
+    var data = getFormData();
+    var lines = [];
+    if (data.creditorName) lines.push("Creditor: " + data.creditorName);
+    if (data.currentAccountNumbers) lines.push("Account #: " + data.currentAccountNumbers);
+    if (scheduledIds.length) {
+      var rows = collectScheduleRows();
+      rows.forEach(function(r, i) {
+        var line = "Schedule " + (i+1) + ": ID " + r.dmScheduleId;
+        if (r.paymentAmount) line += " | Amt $" + r.paymentAmount;
+        if (r.paymentDueDate) line += " | Due " + r.paymentDueDate;
+        lines.push(line);
+      });
+    }
+    if (document.getElementById("escalationFollowupButton").classList.contains("active")) {
+      lines.push("Escalation/Follow up Needed");
+    }
+    if (document.getElementById("escalationNoFollowupButton").classList.contains("active")) {
+      lines.push("Escalation/No Follow up Needed");
+    }
+    var ta = document.querySelector('[name="comments"]');
+    if (ta) ta.value = lines.join("\n");
+  }
+
+  function updateFieldVisibility() {
+    var mode = document.querySelector('[name="paymentSetupMode"]:checked');
+    var modeVal = mode ? mode.value : "CBP";
+    var rcLabel = document.getElementById("ringCentralMasterIdLabel");
+    var repLabel = document.getElementById("repNameLabel");
+    var confLabel = document.getElementById("confirmationNumberLabel");
+    if (modeVal === "Web") {
+      if (rcLabel) rcLabel.hidden = true;
+    } else {
+      if (rcLabel) rcLabel.hidden = false;
+    }
+  }
+
+  function updateFollowupState() {
+    var req = document.querySelector('[name="isFollowupRequired"]:checked');
+    var needed = req && req.value === "Yes";
+    var followupDateInput = document.getElementById("followupDate");
+    var followupPicker    = document.querySelector('[data-date-for="followupDate"]');
+    var followupNative    = document.querySelector('[data-date-picker="followupDate"]');
+    if (followupDateInput) {
+      followupDateInput.readOnly  = !needed;
+      if (!needed) { followupDateInput.value = "N/A"; }
+    }
+    if (followupPicker)  followupPicker.disabled  = !needed;
+    if (followupNative)  followupNative.disabled  = !needed;
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Form submission
+  ───────────────────────────────────────────────────────── */
+  function initFormSubmit() {
+    var form = document.getElementById("recordForm");
+    if (!form) return;
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      submitPaymentEntry();
+    });
+  }
+
+  function getFormData() {
+    var form = document.getElementById("recordForm");
+    var data = {};
+    new FormData(form).forEach(function (v, k) { data[k] = v; });
+    return data;
+  }
+
+  function submitPaymentEntry() {
+    if (!scheduledIds.length) {
+      setStatus("dmScheduleError", "Apply at least one CRM Payment Schedule ID first.", "err");
+      return;
+    }
+    var baseData = getFormData();
+    var scheduleRows = collectScheduleRows();
+    var contents = Object.assign({}, baseData, {
+      dmScheduleMode: "Multiple",
+      scheduleRows: scheduleRows,
+      agentName: document.querySelector('[name="agentName"]').value,
+      receivedOnDate: todayUsDate()
+    });
+    setSaveStatus("Saving…");
+    document.querySelector('[type="submit"]').disabled = true;
+    google.script.run
+      .withSuccessHandler(function (res) {
+        setSaveStatus(res.message || "Saved!", "ok");
+        showToast(res.message || "Payment entry saved!", "ok");
+        document.querySelector('[type="submit"]').disabled = false;
+        if (res.ok) resetPaymentForm();
+      })
+      .withFailureHandler(function (err) {
+        setSaveStatus(err.message, "err");
+        showToast(err.message, "err", 5000);
+        document.querySelector('[type="submit"]').disabled = false;
+      })
+      .savePaymentEntry(contents);
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Reset form
+  ───────────────────────────────────────────────────────── */
+  function initResetButton() {
+    document.getElementById("resetFormButton").addEventListener("click", function () {
+      resetPaymentForm();
+    });
+  }
+
+  function resetPaymentForm() {
+    var form = document.getElementById("recordForm");
+    var agentName = document.querySelector('[name="agentName"]').value;
+    form.reset();
+    document.querySelector('[name="agentName"]').value = agentName;
+    document.querySelector('[name="followupDate"]').value = "N/A";
+    document.getElementById("bulkCrmPreview").textContent = "";
+    document.getElementById("dmScheduleList").innerHTML = "";
+    document.getElementById("dmPaymentScheduleCount").value = "";
+    scheduledIds = [];
+    setSaveStatus("");
+    setStatus("dmScheduleError", "");
+    setStatus("clientLookupError", "");
+    setStatus("amountMatchError", "");
+    updateFollowupState();
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Export CSV
+  ───────────────────────────────────────────────────────── */
+  function initExportCsv() {
+    document.getElementById("exportCsvButton").addEventListener("click", function () {
+      var data = getFormData();
+      var rows = collectScheduleRows();
+      var headers = ["Client ID","Client Full Name","Creditor","Account #","Schedule ID","Amount","Due Date","Followup Date","Agent","Mode","Comments"];
+      var lines = [headers.join(",")];
+      rows.forEach(function (r) {
+        lines.push([
+          data.clientId, data.clientFullName, data.creditorName, data.currentAccountNumbers,
+          r.dmScheduleId, r.paymentAmount, r.paymentDueDate, r.followupDate,
+          data.agentName, data.paymentSetupMode, (data.comments || "").replace(/\n/g," ")
+        ].map(function(v){ return '"' + String(v||"").replace(/"/g,'""') + '"'; }).join(","));
+      });
+      downloadFile("payment-entry.csv", lines.join("\n"), "text/csv");
+    });
+  }
+
+  function downloadFile(name, content, type) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([content], { type: type }));
+    a.download = name;
+    a.click();
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Dashboard
+  ───────────────────────────────────────────────────────── */
+  function initDashboard() {
+    var monthSelect = document.querySelector('[name="dashboardDueRange"]');
+    populateDashboardMonths(monthSelect);
+    document.getElementById("refreshDashboardButton").addEventListener("click", loadDashboard);
+    document.getElementById("dashboardReportButton").addEventListener("click", function () {
+      showPanel("dashboardPanel");
+      loadDashboard();
+    });
+  }
+
+  function populateDashboardMonths(select) {
+    if (!select) return;
+    var d = new Date();
+    select.innerHTML = "";
+    for (var i = -1; i <= 3; i++) {
+      var m = new Date(d.getFullYear(), d.getMonth() + i, 1);
+      var label = m.toLocaleString("en-US", { month: "short", year: "numeric" });
+      var val   = m.toISOString().slice(0, 7);
+      var opt = document.createElement("option");
+      opt.value = val;
+      opt.textContent = label;
+      if (i === 0) opt.selected = true;
+      select.appendChild(opt);
+    }
+  }
+
+  function loadDashboard() {
+    var monthSelect = document.querySelector('[name="dashboardDueRange"]');
+    var dueRange = monthSelect ? monthSelect.value : "";
+    setStatus("dashboardStatus", "Loading dashboard…");
+    document.getElementById("dashboardGrid").innerHTML = "";
+    google.script.run
+      .withSuccessHandler(renderDashboard)
+      .withFailureHandler(function (err) {
+        setStatus("dashboardStatus", err.message, "err");
+      })
+      .getManagementDashboardData({ dueRange: dueRange });
+  }
+
+  function renderDashboard(data) {
+    setStatus("dashboardStatus", "");
+    if (!data) return;
+    document.getElementById("dashboardHeaderMeta").textContent = data.subtitle || "";
+    var grid = document.getElementById("dashboardGrid");
+    grid.innerHTML = "";
+    (data.cards || []).forEach(function (card) {
+      var div = document.createElement("div");
+      div.className = "dashboard-card";
+      var html = '<div class="dashboard-card-title">' + esc(card.title || "") + '</div>';
+      if (card.type === "table") {
+        html += '<table class="dashboard-table"><thead><tr>';
+        (card.columns || []).forEach(function (c) { html += '<th>' + esc(c) + '</th>'; });
+        html += '</tr></thead><tbody>';
+        (card.rows || []).forEach(function (row) {
+          html += '<tr>';
+          row.forEach(function (cell) { html += '<td>' + esc(cell) + '</td>'; });
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+      } else if (card.type === "bar") {
+        var max = Math.max.apply(null, (card.rows || []).map(function(r){ return Number(r[1]) || 0; })) || 1;
+        (card.rows || []).forEach(function (row) {
+          var pct = Math.round((Number(row[1]) || 0) / max * 100);
+          html += '<div class="dashboard-bar-row">' +
+            '<span class="dashboard-bar-label" title="' + esc(row[0]) + '">' + esc(row[0]) + '</span>' +
+            '<div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="width:' + pct + '%"></div></div>' +
+            '<span class="dashboard-bar-count">' + esc(row[1]) + '</span>' +
+            '</div>';
+        });
+      } else if (card.type === "stats") {
+        (card.rows || []).forEach(function (row) {
+          html += '<div class="dashboard-stat-row"><span class="dashboard-stat-label">' + esc(row[0]) +
+            '</span><span class="dashboard-stat-value' + (row[2] ? ' highlight' : '') + '">' + esc(row[1]) + '</span></div>';
+        });
+      }
+      div.innerHTML = html;
+      grid.appendChild(div);
+    });
+    if (!data.cards || !data.cards.length) {
+      grid.innerHTML = '<p style="color:var(--gray-500);padding:16px;">No dashboard data available.</p>';
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Follow-up report
+  ───────────────────────────────────────────────────────── */
+  function initFollowupReport() {
+    document.getElementById("followupReportButton").addEventListener("click", function () {
+      showPanel("followupReportPanel");
+    });
+    document.getElementById("exportFollowupsButton").addEventListener("click", exportFollowups);
+  }
+
+  function exportFollowups() {
+    var startFollowup = document.querySelector('[name="followupExportStartDate"]').value;
+    var endFollowup   = document.querySelector('[name="followupExportEndDate"]').value;
+    var startDue      = document.querySelector('[name="paymentDueExportStartDate"]').value;
+    var endDue        = document.querySelector('[name="paymentDueExportEndDate"]').value;
+    showToast("Loading follow-up data…");
+    google.script.run
+      .withSuccessHandler(function (result) {
+        if (!result || !result.rows || !result.rows.length) {
+          showToast("No follow-up rows found.", "err");
+          return;
+        }
+        exportRowsToCsv("followup-report.csv", result.headers, result.rows);
+        showToast("Exported " + result.rows.length + " rows.", "ok");
+      })
+      .withFailureHandler(function (err) { showToast(err.message, "err", 5000); })
+      .getFollowupRowsBySelection({ startFollowup: startFollowup, endFollowup: endFollowup, startDue: startDue, endDue: endDue });
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Agent report
+  ───────────────────────────────────────────────────────── */
+  function initAgentReport() {
+    document.getElementById("agentReportButton").addEventListener("click", function () {
+      showPanel("agentReportPanel");
+    });
+    document.getElementById("exportAgentDetailsButton").addEventListener("click", exportAgentDetails);
+    document.getElementById("exportTeamCountButton").addEventListener("click", exportTeamCount);
+  }
+
+  function exportAgentDetails() {
+    var start = document.querySelector('[name="agentReportStartDate"]').value;
+    var end   = document.querySelector('[name="agentReportEndDate"]').value;
+    showToast("Loading agent data…");
+    google.script.run
+      .withSuccessHandler(function (result) {
+        if (!result || !result.rows || !result.rows.length) { showToast("No agent rows found.", "err"); return; }
+        exportRowsToCsv("agent-report.csv", result.headers, result.rows);
+        showToast("Exported " + result.rows.length + " rows.", "ok");
+      })
+      .withFailureHandler(function (err) { showToast(err.message, "err", 5000); })
+      .getAgentWorkedRowsByRange(start, end);
+  }
+
+  function exportTeamCount() {
+    var start = document.querySelector('[name="agentReportStartDate"]').value;
+    var end   = document.querySelector('[name="agentReportEndDate"]').value;
+    showToast("Loading team counts…");
+    google.script.run
+      .withSuccessHandler(function (result) {
+        if (!result || !result.rows || !result.rows.length) { showToast("No team count data.", "err"); return; }
+        exportRowsToCsv("team-count.csv", result.headers, result.rows);
+        showToast("Exported team count.", "ok");
+      })
+      .withFailureHandler(function (err) { showToast(err.message, "err", 5000); })
+      .getTeamCompletedCountByRange(start, end);
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Work queue
+  ───────────────────────────────────────────────────────── */
+  var workQueueSource = "Follow-up";
+
+  function initWorkQueue() {
+    document.getElementById("workQueueButton").addEventListener("click", function () {
+      showPanel("workQueuePanel");
+      loadWorkQueue();
+    });
+    document.getElementById("refreshWorkQueueButton").addEventListener("click", loadWorkQueue);
+    document.querySelectorAll("[data-work-queue-source]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        document.querySelectorAll("[data-work-queue-source]").forEach(function (b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+        workQueueSource = btn.getAttribute("data-work-queue-source");
+        loadWorkQueue();
+      });
+    });
+  }
+
+  function loadWorkQueue() {
+    var status = document.querySelector('[name="workQueueStatus"]').value;
+    setStatus("workQueueStatusText", "Loading…");
+    document.getElementById("workQueueMetrics").hidden = true;
+    document.getElementById("workQueueTablePanel").hidden = true;
+    google.script.run
+      .withSuccessHandler(renderWorkQueue)
+      .withFailureHandler(function (err) { setStatus("workQueueStatusText", err.message, "err"); })
+      .getMyWorkQueue(status, workQueueSource);
+  }
+
+  function renderWorkQueue(result) {
+    setStatus("workQueueStatusText", "");
+    if (!result) return;
+    var summary = result.summary || {};
+    document.getElementById("workQueueFollowupAssigned").textContent = summary.followupAssigned || 0;
+    document.getElementById("workQueueNewAssigned").textContent      = summary.newAssigned || 0;
+    document.getElementById("workQueueSameDay").textContent          = summary.sameDayPayments || 0;
+    document.getElementById("workQueueCompleted").textContent        = summary.completed || 0;
+    document.getElementById("workQueueRemaining").textContent        = summary.remaining || 0;
+    var breakdown = document.getElementById("workQueueCreditorBreakdown");
+    breakdown.innerHTML = (summary.byCreditor || []).map(function (c) {
+      return '<span class="agent-chip">' + esc(c.name) + ': ' + esc(c.count) + '</span>';
+    }).join("");
+    document.getElementById("workQueueMetrics").hidden = false;
+
+    var items = result.items || [];
+    document.getElementById("workQueueSummary").textContent = items.length + " case(s)";
+    var tbody = document.getElementById("workQueueBody");
+    tbody.innerHTML = "";
+    items.forEach(function (item) {
+      var tr = document.createElement("tr");
+      var statusCls = item.status === "Completed" ? "completed" : item.status === "In Progress" ? "inprogress" : "open";
+      tr.innerHTML =
+        '<td>' + esc(item.clientFullName || item.clientId || "") + '</td>' +
+        '<td>' + esc(item.crmPaymentScheduleId || "") + '</td>' +
+        '<td>' + esc(fmtUsDate(item.paymentDueDate) || "") + '</td>' +
+        '<td>' + esc(item.paymentAmount ? fmtCurrency(item.paymentAmount) : "") + '</td>' +
+        '<td>' + esc(item.creditorName || "") + '</td>' +
+        '<td><span class="status-badge ' + statusCls + '">' + esc(item.status || "") + '</span></td>' +
+        '<td>' + buildWorkActionButtons(item) + '</td>';
+      tbody.appendChild(tr);
+    });
+    document.getElementById("workQueueTablePanel").hidden = false;
+  }
+
+  function buildWorkActionButtons(item) {
+    if (item.status === "Completed") return '<span style="color:var(--green);font-size:12px;">&#10003; Done</span>';
+    var btns = '';
+    btns += '<button class="small-button" onclick="fillFormFromQueueItem(' + JSON.stringify(item).replace(/"/g,'&quot;') + ')">Fill Form</button> ';
+    if (item.status !== "In Progress") {
+      btns += '<button class="small-button" onclick="updateQueueItemStatus(\'' + esc(item.assignmentId) + '\',\'In Progress\')">Start</button> ';
+    }
+    btns += '<button class="small-button" onclick="updateQueueItemStatus(\'' + esc(item.assignmentId) + '\',\'Completed\')">Complete</button>';
+    return btns;
+  }
+
+  window.fillFormFromQueueItem = function (item) {
+    showPaymentEntry();
+    var fields = {
+      clientId: item.clientId, clientFullName: item.clientFullName,
+      creditorName: item.creditorName, currentAccountNumbers: item.debtAccountNumber,
+      originalAccountNumber: item.originalAccountNumber
+    };
+    Object.keys(fields).forEach(function (n) {
+      var el = document.querySelector('[name="' + n + '"]');
+      if (el && fields[n]) el.value = fields[n];
+    });
+    // Pre-fill single schedule
+    scheduledIds = [item.crmPaymentScheduleId || ""];
+    document.getElementById("dmPaymentScheduleCount").value = 1;
+    document.getElementById("bulkCrmPreview").textContent = scheduledIds[0];
+    renderScheduleList(scheduledIds, document.getElementById("dmScheduleList"));
+    if (item.paymentDueDate) {
+      var inp = document.querySelector('[name="dmDueDate_0"]');
+      if (inp) inp.value = fmtUsDate(item.paymentDueDate);
+    }
+    if (item.paymentAmount) {
+      var amtInp = document.querySelector('[name="dmAmount_0"]');
+      if (amtInp) amtInp.value = item.paymentAmount;
+    }
+    showToast("Form filled from work queue.", "ok");
+  };
+
+  window.updateQueueItemStatus = function (assignmentId, status) {
+    google.script.run
+      .withSuccessHandler(function () {
+        showToast("Status updated to " + status + ".", "ok");
+        loadWorkQueue();
+      })
+      .withFailureHandler(function (err) { showToast(err.message, "err", 4000); })
+      .updateAgentAssignmentStatus(assignmentId, status);
+  };
+
+  /* ─────────────────────────────────────────────────────────
+     Assign work
+  ───────────────────────────────────────────────────────── */
+  var assignableItems = [];
+
+  function initAssignWork() {
+    document.getElementById("assignWorkReportButton").addEventListener("click", function () {
+      showPanel("assignWorkPanel");
+      loadAgentList();
+    });
+    document.getElementById("loadAssignableWorkButton").addEventListener("click", loadAssignableWork);
+    document.getElementById("assignSelectedWorkButton").addEventListener("click", doAssignWork);
+    document.getElementById("assignSelectAllButton").addEventListener("click", function () {
+      document.querySelectorAll("#assignWorkBody input[type=checkbox]").forEach(function (cb) { cb.checked = true; });
+      updateAssignSelectedCount();
+    });
+    document.getElementById("assignClearSelectionButton").addEventListener("click", function () {
+      document.querySelectorAll("#assignWorkBody input[type=checkbox]").forEach(function (cb) { cb.checked = false; });
+      updateAssignSelectedCount();
+    });
+    document.querySelector('[name="assignWorkSource"]').addEventListener("change", function () {
+      document.getElementById("assignWorkTablePanel").hidden = true;
+      document.getElementById("assignWorkMetrics").hidden = true;
+    });
+  }
+
+  function loadAgentList() {
+    var select = document.querySelector('[name="assignWorkAgentEmail"]');
+    if (select.options.length > 1) return;
+    google.script.run
+      .withSuccessHandler(function (users) {
+        (users || []).forEach(function (u) {
+          var opt = document.createElement("option");
+          opt.value = u.email;
+          opt.textContent = u.name + " (" + u.email + ")";
+          select.appendChild(opt);
+        });
+      })
+      .withFailureHandler(function (err) { showToast(err.message, "err"); })
+      .getAssignableCrmUsers();
+  }
+
+  function loadAssignableWork() {
+    var source    = document.querySelector('[name="assignWorkSource"]').value;
+    var startDate = document.querySelector('[name="assignFollowupStartDate"]').value;
+    var endDate   = document.querySelector('[name="assignFollowupEndDate"]').value;
+    var creditor  = document.querySelector('[name="assignWorkCreditorFilter"]').value;
+    setStatus("assignWorkStatus", "Loading…");
+    document.getElementById("assignWorkTablePanel").hidden = true;
+    document.getElementById("assignWorkMetrics").hidden = true;
+
+    function onSuccess(result) {
+      setStatus("assignWorkStatus", "");
+      if (!result) return;
+      assignableItems = result.items || [];
+      renderAssignWorkMetrics(result);
+      renderAssignWorkTable(assignableItems, creditor);
+    }
+
+    if (source === "Follow-up") {
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(function (err) { setStatus("assignWorkStatus", err.message, "err"); })
+        .getAssignableFollowupWorkItems({ startDate: startDate, endDate: endDate, creditor: creditor });
+    } else {
+      google.script.run
+        .withSuccessHandler(onSuccess)
+        .withFailureHandler(function (err) { setStatus("assignWorkStatus", err.message, "err"); })
+        .getAssignableNewCaseWorkItemsFromReference({ startDate: startDate, endDate: endDate });
+    }
+  }
+
+  function renderAssignWorkMetrics(result) {
+    var summary = result.summary || {};
+    document.getElementById("assignWorkDueCount").textContent       = summary.due       || assignableItems.length;
+    document.getElementById("assignWorkAssignedCount").textContent  = summary.assigned  || 0;
+    document.getElementById("assignWorkCompletedCount").textContent = summary.completed || 0;
+    document.getElementById("assignWorkRemainingCount").textContent = summary.remaining || 0;
+    var pct = summary.due ? Math.round((summary.completed || 0) / summary.due * 100) : 0;
+    var wheel = document.getElementById("assignWorkWheel");
+    wheel.style.background = "conic-gradient(var(--blue) " + pct + "%, var(--gray-200) 0%)";
+    wheel.querySelector("span").textContent = pct + "%";
+    document.getElementById("assignWorkWheelLabel").textContent = summary.label || "";
+    var breakdown = document.getElementById("assignWorkAgentBreakdown");
+    breakdown.innerHTML = (summary.byAgent || []).map(function (a) {
+      return '<span class="agent-chip">' + esc(a.name) + ': ' + esc(a.count) + '</span>';
+    }).join("");
+
+    var creditorSelect = document.querySelector('[name="assignWorkCreditorFilter"]');
+    var creditors = {};
+    assignableItems.forEach(function (item) { if (item.creditorName) creditors[item.creditorName] = 1; });
+    var current = creditorSelect.value;
+    creditorSelect.innerHTML = '<option value="">All creditors</option>';
+    Object.keys(creditors).sort().forEach(function (name) {
+      var opt = document.createElement("option");
+      opt.value = name; opt.textContent = name;
+      if (name === current) opt.selected = true;
+      creditorSelect.appendChild(opt);
+    });
+    creditorSelect.disabled = false;
+    creditorSelect.onchange = function () { renderAssignWorkTable(assignableItems, creditorSelect.value); };
+
+    document.getElementById("assignWorkMetrics").hidden = false;
+  }
+
+  function renderAssignWorkTable(items, creditorFilter) {
+    var filtered = creditorFilter
+      ? items.filter(function (i) { return i.creditorName === creditorFilter; })
+      : items;
+    document.getElementById("assignWorkSummary").textContent = filtered.length + " case(s)";
+    var tbody = document.getElementById("assignWorkBody");
+    tbody.innerHTML = "";
+    filtered.forEach(function (item) {
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td><input type="checkbox" data-item-id="' + esc(item.crmPaymentScheduleId || item.clientId) + '" onchange="updateAssignSelectedCount()" /></td>' +
+        '<td>' + esc(item.clientFullName || item.clientId || "") + '</td>' +
+        '<td>' + esc(item.crmPaymentScheduleId || "") + '</td>' +
+        '<td>' + esc(fmtUsDate(item.paymentDueDate) || fmtUsDate(item.followupDate) || "") + '</td>' +
+        '<td>' + esc(item.paymentAmount ? fmtCurrency(item.paymentAmount) : "") + '</td>' +
+        '<td>' + esc(item.creditorName || "") + '</td>';
+      tr.querySelector("input").dataset.item = JSON.stringify(item);
+      tbody.appendChild(tr);
+    });
+    document.getElementById("assignWorkTablePanel").hidden = false;
+    updateAssignSelectedCount();
+  }
+
+  window.updateAssignSelectedCount = function () {
+    var n = document.querySelectorAll("#assignWorkBody input[type=checkbox]:checked").length;
+    document.getElementById("assignSelectedCount").textContent = n + " selected";
+  };
+
+  function doAssignWork() {
+    var agentEmail = document.querySelector('[name="assignWorkAgentEmail"]').value;
+    if (!agentEmail) { setStatus("assignWorkStatus", "Select an agent first.", "err"); return; }
+    var checked = document.querySelectorAll("#assignWorkBody input[type=checkbox]:checked");
+    if (!checked.length) { setStatus("assignWorkStatus", "Select at least one case.", "err"); return; }
+    var items = [];
+    checked.forEach(function (cb) {
+      try { items.push(JSON.parse(cb.dataset.item)); } catch(e) {}
+    });
+    setStatus("assignWorkStatus", "Assigning…");
+    google.script.run
+      .withSuccessHandler(function (res) {
+        setStatus("assignWorkStatus", "Assigned " + res.assigned + " case(s) to " + res.assignedTo + ".", "ok");
+        showToast("Assigned " + res.assigned + " case(s).", "ok");
+      })
+      .withFailureHandler(function (err) { setStatus("assignWorkStatus", err.message, "err"); })
+      .saveAgentAssignments(items, agentEmail);
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Bulk Excel upload
+  ───────────────────────────────────────────────────────── */
+  var bulkParsedRows = [];
+  var bulkHeaders    = [];
+
+  function initBulkUpload() {
+    document.getElementById("bulkUploadButton").addEventListener("click", function () {
+      showPanel("bulkUploadPanel");
+    });
+    document.getElementById("analyzeBulkPaymentsButton").addEventListener("click", analyzeBulkFile);
+    document.getElementById("syncBulkPaymentsButton").addEventListener("click", syncBulkPayments);
+  }
+
+  function analyzeBulkFile() {
+    var fileInput = document.querySelector('[name="bulkPaymentExcelFile"]');
+    if (!fileInput.files.length) { setStatus("bulkUploadError", "Choose a file first.", "err"); return; }
+    setStatus("bulkUploadError", "Parsing…");
+    var file = fileInput.files[0];
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        var wb = XLSX.read(e.target.result, { type: "array", cellDates: true });
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: "MM/DD/YYYY" });
+        if (!data.length) { setStatus("bulkUploadError", "No data found in file.", "err"); return; }
+        bulkHeaders = data[0].map(String);
+        bulkParsedRows = data.slice(1).filter(function (r) { return r.some(function (v) { return v; }); });
+        setStatus("bulkUploadError", "");
+        renderBulkClientReview(bulkHeaders, bulkParsedRows);
+      } catch (err) {
+        setStatus("bulkUploadError", "Parse error: " + err.message, "err");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function renderBulkClientReview(headers, rows) {
+    var clientCol    = findCol(headers, ["Client ID","ClientID","CLIENT_ID","client_id"]);
+    var nameCol      = findCol(headers, ["Client Full Name","Client Name","Name","CLIENT_NAME"]);
+    var scheduleCol  = findCol(headers, ["CRM Payment Schedule ID","Schedule ID","SCHEDULE_ID"]);
+    var outcomeRadio = document.querySelector('[name="bulkPaymentOutcome"]:checked');
+    var outcome      = outcomeRadio ? outcomeRadio.value : "Bulk Payments Setup Successfully";
+
+    var clients = {};
+    rows.forEach(function (row, i) {
+      var cid = row[clientCol] || ("row-" + i);
+      if (!clients[cid]) clients[cid] = { clientId: cid, name: row[nameCol] || "", schedules: [], rowIndexes: [] };
+      clients[cid].schedules.push(row[scheduleCol] || "");
+      clients[cid].rowIndexes.push(i);
+    });
+
+    document.getElementById("bulkClientReviewSummary").textContent = Object.keys(clients).length + " client(s), " + rows.length + " schedule(s)";
+    var tbody = document.getElementById("bulkClientReviewBody");
+    tbody.innerHTML = "";
+    Object.values(clients).forEach(function (c) {
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        '<td>' + esc(c.clientId) + (c.name ? '<br><small>' + esc(c.name) + '</small>' : '') + '</td>' +
+        '<td>' + esc(c.schedules.length) + '</td>' +
+        '<td>' + esc(outcome) + '</td>' +
+        '<td><select data-client-id="' + esc(c.clientId) + '" class="bulk-client-setup">' +
+          '<option value="Yes" selected>Yes</option><option value="No">No</option></select></td>' +
+        '<td><input placeholder="Optional reason" data-reason-for="' + esc(c.clientId) + '" style="padding:4px 8px;border:1px solid var(--gray-300);border-radius:4px;font-size:12px;width:180px;" /></td>';
+      tbody.appendChild(tr);
+    });
+    document.getElementById("bulkClientReviewPanel").hidden = false;
+  }
+
+  function syncBulkPayments() {
+    if (!bulkParsedRows.length) { setStatus("bulkUploadError", "Analyze a file first.", "err"); return; }
+    var outcomeRadio = document.querySelector('[name="bulkPaymentOutcome"]:checked');
+    var outcome      = outcomeRadio ? outcomeRadio.value : "Bulk Payments Setup Successfully";
+    var clientOptions = [];
+    document.querySelectorAll(".bulk-client-setup").forEach(function (sel) {
+      var cid    = sel.getAttribute("data-client-id");
+      var setup  = sel.value;
+      var reason = (document.querySelector('[data-reason-for="' + cid + '"]') || {}).value || "";
+      clientOptions.push({ clientId: cid, setup: setup, reason: reason });
+    });
+    setStatus("bulkUploadError", "Syncing…");
+    document.getElementById("syncBulkPaymentsButton").disabled = true;
+    var sourceValues = [bulkHeaders].concat(bulkParsedRows);
+    google.script.run
+      .withSuccessHandler(function (res) {
+        setStatus("bulkUploadError", "Sync complete: " + (res.updated || 0) + " row(s) updated.", "ok");
+        showToast("Bulk sync complete!", "ok");
+        document.getElementById("syncBulkPaymentsButton").disabled = false;
+      })
+      .withFailureHandler(function (err) {
+        setStatus("bulkUploadError", err.message, "err");
+        document.getElementById("syncBulkPaymentsButton").disabled = false;
+      })
+      .saveBulkPaymentEntriesFromRows(sourceValues, { paymentOutcome: outcome, clientOptions: clientOptions });
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     New payment report
+  ───────────────────────────────────────────────────────── */
+  var newPaymentParsedRows = [];
+  var newPaymentHeaders = [];
+
+  function initNewPaymentReport() {
+    document.getElementById("newPaymentReportButton").addEventListener("click", function () {
+      showPanel("newPaymentReportPanel");
+    });
+    document.getElementById("exportNewPaymentsButton").addEventListener("click", exportNewPayments);
+    document.getElementById("importNewCasesButton").addEventListener("click", importNewCases);
+    document.querySelector('[name="newPaymentExcelFile"]').addEventListener("change", parseNewPaymentFile);
+  }
+
+  function parseNewPaymentFile() {
+    var file = document.querySelector('[name="newPaymentExcelFile"]').files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        var wb = XLSX.read(e.target.result, { type: "array", cellDates: true });
+        var sheetName = document.querySelector('[name="newPaymentSheetName"]').value.trim();
+        var ws = sheetName && wb.Sheets[sheetName] ? wb.Sheets[sheetName] : wb.Sheets[wb.SheetNames[0]];
+        var data = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: "MM/DD/YYYY" });
+        newPaymentHeaders = data[0] || [];
+        newPaymentParsedRows = data.slice(1).filter(function (r) { return r.some(function (v) { return v; }); });
+        setStatus("newPaymentImportStatus", "Parsed " + newPaymentParsedRows.length + " row(s).");
+      } catch (err) {
+        setStatus("newPaymentImportStatus", err.message, "err");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function exportNewPayments() {
+    if (!newPaymentParsedRows.length) { setStatus("newPaymentImportStatus", "Upload a file first.", "err"); return; }
+    exportRowsToCsv("new-payments.csv", newPaymentHeaders, newPaymentParsedRows);
+    showToast("Exported " + newPaymentParsedRows.length + " rows.", "ok");
+  }
+
+  function importNewCases() {
+    if (!newPaymentParsedRows.length) { setStatus("newPaymentImportStatus", "Upload a file first.", "err"); return; }
+    var sourceValues = [newPaymentHeaders].concat(newPaymentParsedRows);
+    var progress = document.getElementById("newPaymentImportProgress");
+    var bar      = document.getElementById("newPaymentImportProgressBar");
+    var txt      = document.getElementById("newPaymentImportProgressText");
+    var pct      = document.getElementById("newPaymentImportProgressPercent");
+    progress.hidden = false;
+    bar.style.width = "0%";
+    txt.textContent = "Importing…";
+    pct.textContent = "0%";
+    document.getElementById("importNewCasesButton").disabled = true;
+
+    var batchSize  = 50;
+    var total      = newPaymentParsedRows.length;
+    var processed  = 0;
+
+    function runBatch() {
+      var chunk = sourceValues.slice(0, batchSize + 1);
+      google.script.run
+        .withSuccessHandler(function (res) {
+          processed += Math.min(batchSize, total - processed);
+          var p = Math.round(processed / total * 100);
+          bar.style.width = p + "%";
+          pct.textContent = p + "%";
+          if (processed >= total) {
+            txt.textContent = "Import complete: " + (res.imported || 0) + " row(s) added.";
+            setStatus("newPaymentImportStatus", (res.imported || 0) + " new reference rows imported.", "ok");
+            document.getElementById("importNewCasesButton").disabled = false;
+            showToast("Import complete!", "ok");
+          } else {
+            txt.textContent = "Importing… " + processed + "/" + total;
+          }
+        })
+        .withFailureHandler(function (err) {
+          setStatus("newPaymentImportStatus", err.message, "err");
+          document.getElementById("importNewCasesButton").disabled = false;
+          progress.hidden = true;
+        })
+        .importNewClientReferenceRowsFromRows(chunk);
+    }
+    runBatch();
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Monthly archive
+  ───────────────────────────────────────────────────────── */
+  function initMonthlyArchive() {
+    document.getElementById("monthlyArchiveButton").addEventListener("click", function () {
+      if (!confirm("Create this month's follow-up archive tab? This will run on the server.")) return;
+      showToast("Creating archive…");
+      google.script.run
+        .withSuccessHandler(function (res) { showToast(res.message || "Archive created.", "ok"); })
+        .withFailureHandler(function (err) { showToast(err.message, "err", 5000); })
+        .createCurrentMonthFollowupArchive();
+    });
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Test sync
+  ───────────────────────────────────────────────────────── */
+  function initSyncTest() {
+    document.getElementById("syncTestButton").addEventListener("click", function () {
+      showToast("Testing master sheet connection…");
+      google.script.run
+        .withSuccessHandler(function (res) {
+          showToast(res.message || (res.ok ? "Connection OK." : "Connection failed."), res.ok ? "ok" : "err", 5000);
+        })
+        .withFailureHandler(function (err) { showToast(err.message, "err", 5000); })
+        .testMasterSheetConnection();
+    });
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     CSV export helper
+  ───────────────────────────────────────────────────────── */
+  function exportRowsToCsv(filename, headers, rows) {
+    var lines = [headers.map(csvCell).join(",")];
+    rows.forEach(function (row) {
+      lines.push(row.map(csvCell).join(","));
+    });
+    downloadFile(filename, lines.join("\n"), "text/csv");
+  }
+
+  function csvCell(v) {
+    return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Column finder helper
+  ───────────────────────────────────────────────────────── */
+  function findCol(headers, names) {
+    for (var n = 0; n < names.length; n++) {
+      var idx = headers.indexOf(names[n]);
+      if (idx >= 0) return idx;
+    }
+    return 0;
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Navigation button wiring
+  ───────────────────────────────────────────────────────── */
+  function initNavButtons() {
+    document.getElementById("backToPaymentEntryButton").addEventListener("click", showPaymentEntry);
+    document.getElementById("followupReportButton").addEventListener("click", function () { showPanel("followupReportPanel"); });
+    document.getElementById("agentReportButton").addEventListener("click", function () { showPanel("agentReportPanel"); });
+    document.getElementById("bulkUploadButton").addEventListener("click", function () { showPanel("bulkUploadPanel"); });
+    document.getElementById("newPaymentReportButton").addEventListener("click", function () { showPanel("newPaymentReportPanel"); });
+    document.getElementById("assignWorkReportButton").addEventListener("click", function () { showPanel("assignWorkPanel"); loadAgentList(); });
+  }
+
+  /* ─────────────────────────────────────────────────────────
+     Init
+  ───────────────────────────────────────────────────────── */
+  document.addEventListener("DOMContentLoaded", function () {
+    wireAllDatePickers();
+    initReportsMenu();
+    initNavButtons();
+    initUser();
+    startPresencePolling();
+    initClientLookup();
+    initBulkCrmIds();
+    initComments();
+    initFormSubmit();
+    initResetButton();
+    initExportCsv();
+    initDashboard();
+    initFollowupReport();
+    initAgentReport();
+    initWorkQueue();
+    initAssignWork();
+    initBulkUpload();
+    initNewPaymentReport();
+    initMonthlyArchive();
+    initSyncTest();
+    updateFollowupState();
+    updateFieldVisibility();
+    showPaymentEntry();
+
+    // Set today's worked date
+    document.querySelector('[name="receivedOnDate"]').value = todayUsDate();
+  });
+})();
+</script>
