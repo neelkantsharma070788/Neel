@@ -1,0 +1,1884 @@
+<!doctype html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agent Utilization Dashboard</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #0b3024;
+        --muted: #566b62;
+        --line: #bdd5cc;
+        --surface: rgba(255, 255, 255, 0.96);
+        --canvas: #f6faf8;
+        --field: #f4faf7;
+        --primary: #065f3f;
+        --primary-2: #08784f;
+        --primary-dark: #034b32;
+        --mint: #eaf5f0;
+        --orange: #f59e0b;
+        --green: #0e7a47;
+        --amber: #b7791f;
+        --red: #b42318;
+        --blue: #1f77a8;
+        --shadow-sm: 0 4px 14px rgba(7, 53, 37, 0.06);
+        --shadow: 0 18px 40px rgba(7, 53, 37, 0.10);
+        --radius: 10px;
+      }
+
+      * { box-sizing: border-box; }
+      [hidden] { display: none !important; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background-color: var(--canvas);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='130' viewBox='0 0 220 130'%3E%3Ctext x='16' y='78' fill='%23073525' fill-opacity='0.05' font-family='Arial, Helvetica, sans-serif' font-size='30' font-weight='900' letter-spacing='3' transform='rotate(-24 110 65)'%3EPRTH%3C/text%3E%3C/svg%3E");
+        background-repeat: repeat;
+        background-size: 220px 130px;
+        color: var(--ink);
+        font-family: Arial, Helvetica, sans-serif;
+        position: relative;
+        overflow-x: hidden;
+      }
+
+      .shell {
+        width: min(1280px, calc(100% - 28px));
+        margin: 0 auto;
+      }
+
+      header {
+        background: transparent;
+        color: var(--ink);
+        padding-top: 16px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 0 0 12px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 32px;
+        line-height: 1.15;
+        color: #103b2b;
+        letter-spacing: -0.3px;
+      }
+
+      .brand-stack { display: grid; gap: 8px; }
+
+      .priority-logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        width: max-content;
+        background: var(--primary);
+        color: #fff;
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 17px;
+        font-weight: 900;
+        letter-spacing: 0.5px;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .priority-icon { width: 28px; height: 28px; flex: 0 0 auto; }
+      .priority-logo span:last-child { display: inline-block; transform: translateY(1px); }
+
+      .header-meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        align-items: center;
+      }
+
+      .pill {
+        background: rgba(255, 255, 255, 0.85);
+        border: 1px solid #bcd4cb;
+        border-radius: 8px;
+        color: #133a2c;
+        font-size: 12px;
+        font-weight: 700;
+        min-height: 36px;
+        padding: 0 14px;
+        box-shadow: var(--shadow-sm);
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        display: inline-flex;
+        align-items: center;
+      }
+      .pill:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(7,53,37,0.12); }
+      .pill.active {
+        background: linear-gradient(90deg, var(--primary), var(--primary-2));
+        color: #fff;
+        border-color: var(--primary-dark);
+      }
+      .admin-pill {
+        border-radius: 999px;
+        font-size: 11px;
+        background: linear-gradient(90deg, #0a4f3a, #0e7a47);
+        color: #fff;
+        border-color: var(--primary-dark);
+        cursor: default;
+      }
+      .admin-pill:hover { transform: none; }
+
+      main { padding: 0 0 40px; }
+
+      /* Team Switcher */
+      .team-switcher {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        margin-bottom: 16px;
+        padding: 18px 20px;
+      }
+      .team-switcher h2 { margin: 0 0 4px; color: #103b2b; font-size: 19px; }
+      .team-switcher p { margin: 0 0 14px; color: var(--muted); font-size: 13px; font-weight: 700; }
+      .team-buttons {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+      }
+      .team-button {
+        min-height: 56px;
+        background: var(--team-color, #0a4f3a);
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        box-shadow: 0 7px 16px rgba(7, 53, 37, 0.14);
+        font-size: 15px;
+        font-weight: 800;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+      .team-button:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(7,53,37,0.2); }
+      .team-button.active {
+        border-color: #fff;
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.4), 0 9px 18px rgba(7, 53, 37, 0.2);
+      }
+
+      /* Panels */
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 18px;
+        background: linear-gradient(90deg, var(--primary), var(--primary-2));
+        color: #fff;
+      }
+      .panel-title { margin: 0; font-size: 15px; line-height: 1.2; color: #fff; font-weight: 800; }
+      .panel-subtitle { margin: 3px 0 0; color: rgba(255, 255, 255, 0.85); font-size: 11px; font-weight: 700; }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(720px, 1fr) 400px;
+        gap: 16px;
+        align-items: start;
+      }
+
+      .entry-meta {
+        display: grid;
+        grid-template-columns: 150px minmax(180px, 1fr) minmax(200px, 1fr);
+        gap: 12px;
+        padding: 16px 18px;
+      }
+
+      .agent-profile {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+        margin: 0 18px 16px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: linear-gradient(135deg, #f5fbf8, #ffffff);
+      }
+      .agent-profile div { min-width: 0; }
+      .agent-profile span {
+        display: block; color: var(--muted); font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.4px;
+      }
+      .agent-profile strong {
+        display: block; margin-top: 4px; color: var(--ink); font-size: 12px; line-height: 1.25; overflow-wrap: anywhere;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        color: #536861;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      input, select, textarea {
+        width: 100%;
+        border: 1px solid #bcd4cb;
+        border-radius: 7px;
+        background: var(--field);
+        color: var(--ink);
+        font: inherit;
+        min-height: 38px;
+        padding: 9px 11px;
+        font-size: 12px;
+        font-weight: 700;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      }
+      textarea { min-height: 42px; resize: vertical; }
+      input:focus, select:focus, textarea:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(6, 95, 63, 0.15);
+        border-color: var(--primary-2);
+      }
+
+      .live-summary {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background: linear-gradient(135deg, #fbfefd, #f3faf6);
+      }
+      .metric { padding: 14px 16px; border-right: 1px solid var(--line); }
+      .metric:last-child { border-right: 0; }
+      .metric span { display: block; color: var(--muted); font-size: 11px; font-weight: 700; }
+      .metric strong { display: block; margin-top: 5px; color: var(--primary); font-size: 23px; line-height: 1.1; }
+
+      .task-list { padding: 16px 18px; }
+      .entry-grid {
+        width: 100%;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: rgba(246, 251, 248, 0.92);
+      }
+      .entry-grid-head, .task-row {
+        display: grid;
+        grid-template-columns: 86px minmax(240px, 1fr) 74px 112px minmax(240px, 0.9fr);
+      }
+      .entry-grid-head {
+        background: var(--mint);
+        color: #123a2c;
+        font-size: 12px;
+        font-weight: 900;
+        border-bottom: 1px solid var(--line);
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+      .entry-grid-head div, .task-row > div { padding: 10px; border-right: 1px solid var(--line); }
+      .entry-grid-head div:last-child, .task-row > div:last-child { border-right: 0; }
+      .section-row {
+        display: flex; align-items: center; min-height: 36px; padding: 9px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+        background: var(--section-color, #0b6043); color: #fff; font-size: 12px; font-weight: 900;
+      }
+      .task-row {
+        align-items: center; min-height: 52px; background: rgba(255, 255, 255, 0.6);
+        border-bottom: 1px solid var(--line); transition: background 0.12s ease;
+      }
+      .task-row:hover { background: #edf7f2; }
+      .task-row:last-child { border-bottom: 0; }
+      .task-id { color: var(--primary); font-size: 13px; font-weight: 900; }
+      .task-name { color: #203941; font-size: 12px; font-weight: 800; line-height: 1.2; }
+      .aht { color: var(--muted); font-size: 12px; font-weight: 800; text-align: right; white-space: nowrap; }
+      .task-count input { min-height: 34px; text-align: right; }
+      .task-comment textarea { min-height: 34px; }
+
+      .general-notes { padding: 0 18px 16px; }
+      .actions {
+        display: flex; justify-content: space-between; align-items: center; gap: 14px;
+        padding: 16px 18px; border-top: 1px solid var(--line); background: rgba(246, 251, 248, 0.9);
+      }
+      .button-row { display: flex; gap: 10px; }
+
+      button {
+        appearance: none;
+        border: 1px solid #0a5d3f;
+        border-radius: 7px;
+        min-height: 38px;
+        padding: 0 16px;
+        background: linear-gradient(90deg, var(--primary), var(--primary-2));
+        color: #fff;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 800;
+        font-size: 12px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+      }
+      button:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(7,53,37,0.18); }
+      button.secondary { background: #f8fcfa; color: var(--primary); border-color: #bcd4cb; }
+      button:disabled { cursor: not-allowed; opacity: 0.6; transform: none; box-shadow: none; }
+
+      .message { color: var(--muted); font-weight: 700; min-height: 22px; font-size: 12px; }
+      .message.good { color: var(--green); }
+      .message.bad { color: var(--red); }
+
+      /* Dashboard */
+      .dashboard-body { padding: 16px 18px; }
+      .dashboard-controls { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; margin-bottom: 10px; }
+      .filter-bar { display: grid; grid-template-columns: 1fr 150px; gap: 10px; margin: 12px 0; }
+      .dashboard-access { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+      .dashboard-access button.active, #kraButton.active {
+        background: linear-gradient(90deg, var(--primary), var(--primary-2)); color: #fff; border-color: #0a5d3f;
+      }
+      .view-note { min-height: 17px; margin: -2px 0 12px; color: var(--muted); font-size: 11px; font-weight: 700; }
+
+      .dashboard-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+      .mini-metric {
+        background: linear-gradient(135deg, var(--mint), #ffffff);
+        border: 1px solid #c5ddd3; border-radius: 8px; padding: 12px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+      .mini-metric:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+      .mini-metric span { display: block; color: var(--muted); font-size: 12px; font-weight: 700; }
+      .mini-metric strong { display: block; margin-top: 4px; color: var(--primary); font-size: 21px; }
+
+      .pie-wrap { display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: center; margin: 16px 0; }
+      .pie {
+        width: 168px; height: 168px; border-radius: 50%; background: #dbe8ec;
+        border: 9px solid #fff; box-shadow: inset 0 0 0 1px var(--line), 0 8px 22px rgba(7, 53, 37, 0.1);
+      }
+      .pie-empty { display: grid; place-items: center; background: #e6eef1; color: var(--muted); font-weight: 800; text-align: center; padding: 16px; }
+      .legend { display: grid; gap: 7px; max-height: 190px; overflow: auto; }
+      .legend-row { display: grid; grid-template-columns: 12px 1fr auto; gap: 8px; align-items: center; color: #263f46; font-size: 12px; font-weight: 700; }
+      .swatch { width: 12px; height: 12px; border-radius: 3px; }
+
+      .agent-list { display: grid; gap: 9px; }
+      .agent-row { border: 1px solid var(--line); background: rgba(246, 251, 248, 0.9); border-radius: 8px; padding: 11px; transition: box-shadow 0.15s ease; }
+      .agent-row:hover { box-shadow: var(--shadow-sm); }
+      .agent-row-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+      .agent-row strong { font-size: 14px; }
+      .agent-row span { color: var(--muted); font-size: 12px; font-weight: 700; }
+      .bar-track { height: 10px; overflow: hidden; border-radius: 999px; background: #e2ecef; }
+      .bar-fill { height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, var(--primary), #13a06c); transition: width 0.4s ease; }
+
+      .status-on { color: var(--green) !important; }
+      .status-watch { color: var(--amber) !important; }
+      .status-below { color: var(--red) !important; }
+      .status-chip {
+        display: inline-flex; align-items: center; justify-content: center; border-radius: 999px;
+        padding: 3px 9px; background: #edf7f2; font-size: 11px; font-weight: 900;
+      }
+
+      .toolbar-actions { display: flex; gap: 8px; margin-top: 12px; }
+      .toolbar-actions button { flex: 1; }
+
+      .loading {
+        background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+        padding: 18px; color: var(--muted); font-weight: 700;
+      }
+
+      /* KRA tables */
+      .kra-panel { display: grid; gap: 10px; margin-top: 16px; }
+      .kra-table, .kra-page-table { overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+      .kra-table table, .kra-page-table table { width: 100%; border-collapse: collapse; background: rgba(246, 251, 248, 0.92); }
+      .kra-table table { min-width: 720px; }
+      .kra-page-table table { min-width: 1000px; }
+      .kra-table th, .kra-table td, .kra-page-table th, .kra-page-table td {
+        border-bottom: 1px solid var(--line); padding: 9px 10px; color: #203941; font-size: 11px; font-weight: 800; text-align: left; white-space: nowrap;
+      }
+      .kra-page-table th, .kra-page-table td { font-size: 12px; padding: 10px 11px; }
+      .kra-table th, .kra-page-table th {
+        background: var(--mint); color: #123a2c; font-weight: 900; position: sticky; top: 0; z-index: 2;
+      }
+      .kra-table td.number, .kra-page-table td.number, .kra-page-table th.number { text-align: right; }
+      .kra-page-table tbody tr:nth-child(even) { background: #f9fcfa; }
+      .kra-page-table tbody tr:hover { background: #edf7f2; }
+      .kra-agent-name strong, .kra-agent-name span { display: block; }
+      .kra-agent-name span { margin-top: 3px; color: var(--muted); font-size: 11px; }
+
+      /* KRA page */
+      .kra-page { display: grid; gap: 16px; }
+      .kra-report-head {
+        display: flex; justify-content: space-between; gap: 16px; align-items: flex-start;
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px;
+      }
+      .priority-logo.compact { padding: 5px 10px; font-size: 15px; }
+      .priority-logo.compact .priority-icon { width: 24px; height: 24px; }
+      .kra-report-head h2 { margin: 10px 0 4px; color: #103b2b; font-size: 30px; line-height: 1.1; }
+      .kra-report-head p { margin: 0; color: var(--muted); font-size: 13px; font-weight: 800; }
+      .kra-report-actions, .kra-view-buttons { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+      .kra-toolbar {
+        display: grid; grid-template-columns: 180px minmax(220px, 1fr) auto; gap: 12px; align-items: end;
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px;
+      }
+      .kra-email-panel {
+        display: grid; grid-template-columns: minmax(240px, 1fr) auto minmax(180px, 0.75fr); gap: 12px; align-items: end;
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px;
+      }
+      .kra-email-template {
+        display: grid; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px;
+      }
+      .kra-email-template h3 { margin: 0; color: #103b2b; font-size: 16px; }
+      .kra-email-template textarea { min-height: 110px; }
+      .kra-email-template p { margin: 0; color: var(--muted); font-size: 12px; font-weight: 800; }
+
+      .kra-entry-panel {
+        display: grid; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px;
+      }
+      .kra-entry-head { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+      .kra-entry-head h3 { margin: 0 0 4px; color: #103b2b; font-size: 16px; }
+      .kra-entry-head p { margin: 0; color: var(--muted); font-size: 12px; font-weight: 800; }
+      .kra-entry-controls {
+        display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
+        padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #f3faf6;
+      }
+      .kra-entry-preview {
+        display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px;
+        padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
+      }
+      .kra-preview-item { min-width: 0; padding: 10px; border: 1px solid #cfe0d9; border-radius: 7px; background: #f7fcf9; }
+      .kra-preview-item span { display: block; color: var(--muted); font-size: 10px; font-weight: 900; text-transform: uppercase; }
+      .kra-preview-item strong { display: block; margin-top: 5px; color: var(--primary); font-size: 18px; line-height: 1.1; }
+      .kra-view-buttons button.active { background: linear-gradient(90deg, var(--primary), var(--primary-2)); color: #fff; border-color: #0a5d3f; }
+
+      .kra-hero {
+        display: flex; justify-content: space-between; gap: 16px; align-items: center;
+        background: linear-gradient(120deg, var(--primary), var(--primary-2)); color: #fff;
+        border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px;
+      }
+      .kra-hero h3 { margin: 0 0 5px; font-size: 23px; }
+      .kra-hero p { margin: 0; color: rgba(255, 255, 255, 0.85); font-weight: 800; }
+      .kra-hero strong {
+        display: inline-flex; align-items: center; min-height: 36px; border-radius: 999px;
+        background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.28); padding: 0 16px; white-space: nowrap;
+      }
+      .kra-report-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+      .kra-detail-grid { display: grid; grid-template-columns: 310px minmax(0, 1fr); gap: 16px; align-items: start; }
+      .kra-detail-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+      .kra-detail-card h3 { margin: 0; padding: 14px 16px; background: var(--mint); border-bottom: 1px solid var(--line); color: #123a2c; font-size: 15px; }
+      .kra-split-rows { display: grid; gap: 12px; padding: 16px; }
+      .kra-split-row { display: grid; gap: 6px; }
+      .kra-split-row div:first-child { display: flex; justify-content: space-between; gap: 10px; color: #203941; font-size: 12px; font-weight: 900; }
+      .kra-meter { height: 9px; overflow: hidden; border-radius: 999px; background: #e2ecef; }
+      .kra-meter span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--primary), #13a06c); transition: width 0.4s ease; }
+
+      /* Bulk page */
+      .bulk-body { display: grid; gap: 14px; padding: 18px; }
+      .bulk-controls { display: grid; grid-template-columns: 170px minmax(260px, 1fr) auto auto; align-items: end; gap: 12px; }
+      .bulk-options { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+      .bulk-checkbox { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-size: 12px; font-weight: 800; }
+      .bulk-checkbox input { width: auto; min-height: 0; }
+      #bulkPaste { min-height: 160px; font-family: Arial, Helvetica, sans-serif; }
+
+      /* Attendance */
+      .attendance-page { display: grid; gap: 16px; }
+      .att-head {
+        display: flex; justify-content: space-between; align-items: end; gap: 16px;
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px;
+      }
+      .att-head h2 { margin: 0; color: #103b2b; font-size: 24px; }
+      .att-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; font-weight: 700; }
+      .att-controls { display: flex; gap: 10px; align-items: end; }
+      .att-controls label { min-width: 160px; }
+      .att-legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 0 4px; }
+      .att-legend-item { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: var(--muted); }
+      .att-legend-box { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--line); }
+      .att-table-wrap { overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+      .att-table { border-collapse: collapse; width: 100%; min-width: 800px; }
+      .att-table th, .att-table td { border: 1px solid var(--line); padding: 7px 6px; text-align: center; font-size: 11px; font-weight: 700; }
+      .att-table thead th { background: var(--mint); color: #123a2c; font-weight: 900; position: sticky; top: 0; z-index: 2; }
+      .att-table .att-agent { text-align: left; font-weight: 800; white-space: nowrap; background: #f7fcf9; position: sticky; left: 0; z-index: 1; min-width: 170px; }
+      .att-cell { width: 30px; height: 28px; }
+      .att-present { background: #d1fae5; }
+      .att-absent { background: #fef3c7; }
+      .att-future { background: #ffffff; }
+      .att-weekend { background: #eef2f0; color: #9bb0a8; }
+      .att-pct { font-weight: 900; color: var(--primary); background: #f3faf6; }
+      .att-summary-row td { background: #eaf5f0; font-weight: 900; color: #123a2c; }
+
+      /* Compare Teams */
+      .compare-page { display: grid; gap: 16px; }
+      .compare-head {
+        display: flex; justify-content: space-between; align-items: center; gap: 16px;
+        background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 18px;
+      }
+      .compare-head h2 { margin: 0; color: #103b2b; font-size: 24px; }
+      .compare-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+      .compare-col { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+      .compare-col-head { padding: 14px 16px; color: #fff; font-weight: 900; font-size: 15px; background: var(--col-color, #0a4f3a); }
+      .compare-col-body { display: grid; gap: 10px; padding: 14px 16px; }
+      .compare-metric { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: linear-gradient(135deg, var(--mint), #fff); }
+      .compare-metric span { color: var(--muted); font-size: 12px; font-weight: 800; }
+      .compare-metric strong { color: var(--primary); font-size: 18px; }
+      .compare-chart-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+      .compare-chart-card h3 { margin: 0 0 14px; color: #103b2b; font-size: 17px; }
+
+      /* Toast */
+      .center-toast {
+        position: fixed; top: 50%; left: 50%; z-index: 2000;
+        min-width: min(360px, calc(100vw - 32px)); transform: translate(-50%, -50%) scale(0.96);
+        border-radius: 10px; padding: 18px 22px; background: #047857; color: #fff;
+        box-shadow: 0 22px 55px rgba(7, 53, 37, 0.28); font-size: 16px; font-weight: 900; line-height: 1.35; text-align: center;
+        opacity: 0; pointer-events: none; transition: opacity 160ms ease, transform 160ms ease;
+      }
+      .center-toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      .center-toast.bad { background: #b91c1c; }
+
+      @media (max-width: 1120px) {
+        .layout, .entry-meta, .agent-profile, .pie-wrap, .bulk-controls, .kra-toolbar,
+        .kra-email-panel, .kra-entry-controls, .kra-entry-preview, .kra-entry-head,
+        .kra-detail-grid, .compare-grid { grid-template-columns: 1fr; }
+        .live-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .team-buttons { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+        .kra-report-kpis { grid-template-columns: repeat(3, 1fr); }
+        .entry-grid-head { display: none; }
+        .task-row { grid-template-columns: 72px 1fr; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 9px; }
+        .task-row > div { border-right: 0; }
+        .aht, .task-count, .task-comment { grid-column: 1 / -1; text-align: left; }
+        .section-row { border-radius: 8px; margin: 12px 0 8px; }
+      }
+      @media (max-width: 620px) {
+        .topbar, .actions, .kra-report-head, .kra-hero, .att-head, .compare-head { align-items: stretch; flex-direction: column; }
+        .header-meta, .button-row { justify-content: flex-start; }
+        .live-summary, .dashboard-kpis, .kra-report-kpis, .team-buttons, .filter-bar { grid-template-columns: 1fr; }
+        h1 { font-size: 22px; }
+      }
+      @media print {
+        body { background: #fff; }
+        header, #teamChooser, #app, #attendancePage .att-controls, .kra-toolbar, .kra-report-actions { display: none !important; }
+        .shell { width: 100%; }
+        .panel, .kra-report-head, .kra-hero, .kra-detail-card, .mini-metric { box-shadow: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="shell topbar">
+        <div class="brand-stack">
+          <div class="priority-logo">
+            <svg class="priority-icon" viewBox="0 0 48 48" aria-hidden="true">
+              <path d="M24 4 42 14v20L24 44 6 34V14L24 4Z" fill="none" stroke="#c8efd9" stroke-width="7" stroke-linejoin="round"></path>
+              <path d="M24 15 32 19.5v9L24 33l-8-4.5v-9L24 15Z" fill="#c8efd9"></path>
+            </svg>
+            <span>PRIORITY</span>
+          </div>
+          <h1>Agent Utilization Dashboard</h1>
+        </div>
+        <div class="header-meta">
+          <div class="pill admin-pill" id="userPill">Loading...</div>
+          <button type="button" class="pill active" id="navDashboard">Dashboard</button>
+          <button type="button" class="pill" id="bulkButton">Bulk Upload</button>
+          <button type="button" class="pill" id="attendanceButton">Attendance</button>
+          <button type="button" class="pill" id="compareButton">Compare Teams</button>
+          <button type="button" class="pill" id="kraButton">KRA</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="shell">
+        <div id="loading" class="loading">Loading portal...</div>
+
+        <section id="teamChooser" class="team-switcher" hidden>
+          <h2>Select Team</h2>
+          <p>Choose your team to open the entry form and team-specific dashboards.</p>
+          <div id="teamButtons" class="team-buttons"></div>
+        </section>
+
+        <div id="app" class="layout" hidden>
+          <form id="entryForm" class="panel">
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title">Agent Entry</h2>
+                <p class="panel-subtitle"><span id="entryTeamName">Select team</span> · Enter counts and add task-level comments where needed.</p>
+              </div>
+            </div>
+            <section class="entry-meta">
+              <label>Date<input id="workDate" type="date" required></label>
+              <label>Agent<select id="agent" required></select></label>
+              <label>Submitted By<input id="submittedBy" type="email" placeholder="name@company.com"></label>
+            </section>
+            <section id="agentProfile" class="agent-profile" hidden></section>
+            <section class="live-summary" aria-live="polite">
+              <div class="metric"><span>Total Volume</span><strong id="totalVolume">0</strong></div>
+              <div class="metric"><span>Productive Minutes</span><strong id="productiveMinutes">0</strong></div>
+              <div class="metric"><span>Productive Hours</span><strong id="productiveHours">0.0</strong></div>
+              <div class="metric"><span>Utilization</span><strong id="utilization">0%</strong></div>
+              <div class="metric"><span>Status</span><strong id="status">No volume</strong></div>
+            </section>
+            <section id="taskRows" class="task-list"></section>
+            <section class="general-notes">
+              <label>General Notes<textarea id="notes" rows="3" placeholder="Optional shift-level note"></textarea></label>
+            </section>
+            <div class="actions">
+              <div id="message" class="message"></div>
+              <div class="button-row">
+                <button type="button" class="secondary" id="clearButton">Clear</button>
+                <button type="submit" id="submitButton">Submit Numbers</button>
+              </div>
+            </div>
+          </form>
+
+          <aside class="panel">
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title">Monthly Utilization</h2>
+                <p class="panel-subtitle"><span id="dashboardTeamName">Select team</span> · Agent-wise month view.</p>
+              </div>
+            </div>
+            <div class="dashboard-body">
+              <div class="dashboard-controls">
+                <label>Month<input id="monthPicker" type="month"></label>
+                <button type="button" class="secondary" id="refreshButton">Refresh</button>
+              </div>
+              <div class="dashboard-controls">
+                <label>Daily View<input id="dailyDatePicker" type="date"></label>
+                <button type="button" class="secondary" id="todayButton">Today</button>
+              </div>
+              <div class="dashboard-access">
+                <button type="button" class="secondary active" id="myViewButton">My Utilization</button>
+                <button type="button" class="secondary" id="allViewButton">Admin / Lead View</button>
+              </div>
+              <div id="viewNote" class="view-note"></div>
+              <div class="dashboard-kpis">
+                <div class="mini-metric"><span>Total Volume</span><strong id="dashVolume">0</strong></div>
+                <div class="mini-metric"><span>Productive Hours</span><strong id="dashHours">0.0</strong></div>
+                <div class="mini-metric"><span>Avg Utilization</span><strong id="dashUtilization">0%</strong></div>
+                <div class="mini-metric"><span>Active Agents</span><strong id="dashAgents">0</strong></div>
+              </div>
+              <div class="filter-bar">
+                <input type="search" id="agentSearch" placeholder="Search agent name...">
+                <select id="statusFilter">
+                  <option value="">All statuses</option>
+                  <option value="On target">On target</option>
+                  <option value="Watch">Watch</option>
+                  <option value="Below target">Below target</option>
+                </select>
+              </div>
+              <div class="pie-wrap">
+                <div id="pieChart" class="pie pie-empty">No data</div>
+                <div id="pieLegend" class="legend"></div>
+              </div>
+              <div id="agentUtilizationRows" class="agent-list"></div>
+              <div class="toolbar-actions">
+                <button type="button" class="secondary" id="exportUtilButton">Export CSV</button>
+              </div>
+              <section id="kraPanel" class="kra-panel" hidden>
+                <div class="dashboard-kpis">
+                  <div class="mini-metric"><span>KRA Production</span><strong id="kraProduction">0.0</strong></div>
+                  <div class="mini-metric"><span>Avg Attainment</span><strong id="kraAttainment">0%</strong></div>
+                  <div class="mini-metric"><span>Avg Rating</span><strong id="kraRating">0.0</strong></div>
+                  <div class="mini-metric"><span>Target Met</span><strong id="kraTargetMet">0</strong></div>
+                </div>
+                <div id="kraRows" class="kra-table"></div>
+              </section>
+            </div>
+          </aside>
+        </div>
+
+        <section id="bulkPage" class="panel bulk-page" hidden>
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Bulk Monthly Upload</h2>
+              <p class="panel-subtitle"><span id="bulkTeamName">Select team</span> · Day-wise team numbers</p>
+            </div>
+            <button type="button" class="secondary" id="bulkBackButton">Back to Dashboard</button>
+          </div>
+          <div class="bulk-body">
+            <div class="bulk-controls">
+              <label>Month<input id="bulkMonthPicker" type="month"></label>
+              <label>CSV / Excel File<input id="bulkFile" type="file" accept=".xlsx,.csv,.txt,.tsv"></label>
+              <button type="button" class="secondary" id="bulkTemplateButton">Download Template</button>
+              <button type="button" id="bulkUploadButton">Upload Monthly Numbers</button>
+            </div>
+            <div class="bulk-options">
+              <label class="bulk-checkbox"><input id="bulkUpdateKra" type="checkbox" checked>Update KRA production from uploaded task totals</label>
+              <div id="bulkMessage" class="message"></div>
+            </div>
+            <label>Paste Rows<textarea id="bulkPaste" placeholder="Work Date,Agent,Task1,Task2,General Notes"></textarea></label>
+          </div>
+        </section>
+
+        <section id="attendancePage" class="attendance-page" hidden>
+          <div class="att-head">
+            <div>
+              <h2>Attendance Tracker</h2>
+              <p><span id="attTeamName">Select team</span> · Daily submission heatmap</p>
+            </div>
+            <div class="att-controls">
+              <label>Month<input id="attMonthPicker" type="month"></label>
+              <button type="button" class="secondary" id="attRefreshButton">Refresh</button>
+              <button type="button" class="secondary" id="attBackButton">Back to Dashboard</button>
+            </div>
+          </div>
+          <div class="att-legend">
+            <div class="att-legend-item"><span class="att-legend-box att-present"></span> Data submitted</div>
+            <div class="att-legend-item"><span class="att-legend-box att-absent"></span> No data (past day)</div>
+            <div class="att-legend-item"><span class="att-legend-box att-future"></span> Future / not due</div>
+            <div class="att-legend-item"><span class="att-legend-box att-weekend"></span> Weekend</div>
+          </div>
+          <div class="att-table-wrap"><div id="attTable"></div></div>
+        </section>
+
+        <section id="comparePage" class="compare-page" hidden>
+          <div class="compare-head">
+            <h2>Team Comparison</h2>
+            <button type="button" class="secondary" id="compareBackButton">Back to Dashboard</button>
+          </div>
+          <div id="compareGrid" class="compare-grid"></div>
+          <div class="compare-chart-card">
+            <h3>Average Utilization by Team</h3>
+            <div id="compareChart"></div>
+          </div>
+        </section>
+
+        <section id="kraPage" class="kra-page" hidden>
+          <div class="kra-report-head">
+            <div>
+              <div class="priority-logo compact">
+                <svg class="priority-icon" viewBox="0 0 48 48" aria-hidden="true">
+                  <path d="M24 4 42 14v20L24 44 6 34V14L24 4Z" fill="none" stroke="#c8efd9" stroke-width="7" stroke-linejoin="round"></path>
+                  <path d="M24 15 32 19.5v9L24 33l-8-4.5v-9L24 15Z" fill="#c8efd9"></path>
+                </svg>
+                <span>PRIORITY</span>
+              </div>
+              <h2>KRA Dashboard</h2>
+              <p><span id="kraPageTeamName">Select team</span> · <span id="kraPageMonthLabel">Selected month</span></p>
+            </div>
+            <div class="kra-report-actions">
+              <button type="button" class="secondary" id="kraBackButton">Back to Dashboard</button>
+              <button type="button" class="secondary" id="kraExportButton">Export CSV</button>
+              <button type="button" class="secondary" id="kraPrintButton">Print / Save PDF</button>
+            </div>
+          </div>
+
+          <div class="kra-toolbar">
+            <label>Month<input id="kraMonthPicker" type="month"></label>
+            <label>Agent<select id="kraAgentPicker"></select></label>
+            <div class="kra-view-buttons">
+              <button type="button" class="secondary active" id="kraAllButton">All Agents KRA</button>
+              <button type="button" class="secondary" id="kraAgentButton">Agent Wise KRA</button>
+              <button type="button" id="kraRefreshButton">Refresh KRA</button>
+            </div>
+          </div>
+
+          <section id="kraEntryPanel" class="kra-entry-panel">
+            <div class="kra-entry-head">
+              <div>
+                <h3>KRA Monthly Entry</h3>
+                <p>Lead/admin entry for monthly task counts, audit quality, and shrinkage.</p>
+              </div>
+              <button type="button" id="kraSaveButton">Save KRA Data</button>
+            </div>
+            <div id="kraEntryMessage" class="message"></div>
+            <div class="kra-entry-controls">
+              <label>Working Days<input id="kraWorkingDays" type="number" min="0" step="0.01" placeholder="22"></label>
+              <label>Audit Count<input id="kraAuditCount" type="number" min="0" step="1" placeholder="0"></label>
+              <label>Quality %<input id="kraQualityScore" type="number" min="0" max="100" step="0.01" placeholder="100"></label>
+              <label>Internal Fatal<input id="kraInternalFatal" type="number" min="0" step="1" placeholder="0"></label>
+              <label>Internal Non-Fatal<input id="kraInternalNonFatal" type="number" min="0" step="1" placeholder="0"></label>
+              <label>Coaching Fatal<input id="kraCoachingFatal" type="number" min="0" step="1" placeholder="0"></label>
+              <label>Coaching Non-Fatal<input id="kraCoachingNonFatal" type="number" min="0" step="1" placeholder="0"></label>
+              <label>Planned Shrinkage<input id="kraPlannedShrinkage" type="number" min="0" step="0.01" placeholder="0"></label>
+              <label>Unplanned Shrinkage<input id="kraUnplannedShrinkage" type="number" min="0" step="0.01" placeholder="0"></label>
+            </div>
+            <div id="kraEntryRows" class="kra-entry-rows"></div>
+            <div id="kraEntryPreview" class="kra-entry-preview"></div>
+          </section>
+
+          <div class="kra-email-panel">
+            <label>Email KRA To<input id="kraEmailTo" type="email" placeholder="agent@prth.com"></label>
+            <button type="button" id="kraEmailButton">Email KRA</button>
+            <div id="kraEmailMessage" class="message"></div>
+          </div>
+
+          <section class="kra-email-template">
+            <h3>Email Template</h3>
+            <label>Subject<input id="kraEmailSubject" type="text" placeholder="Monthly Performance Report"></label>
+            <label>Body<textarea id="kraEmailBody" rows="4"></textarea></label>
+            <p id="kraEmailTemplateNote">Only admin can edit this before sending.</p>
+          </section>
+
+          <section class="kra-hero">
+            <div>
+              <h3 id="kraReportTitle">Monthly KRA</h3>
+              <p id="kraReportSubtitle">Production 60% · Quality 30% · Shrinkage 10%</p>
+            </div>
+            <strong id="kraReportTargetMet">0/0 Target Met</strong>
+          </section>
+
+          <section class="kra-report-kpis">
+            <div class="mini-metric"><span>Total Production</span><strong id="kraPageProduction">0.0</strong></div>
+            <div class="mini-metric"><span>Avg Attainment</span><strong id="kraPageAttainment">0%</strong></div>
+            <div class="mini-metric"><span>Avg Rating</span><strong id="kraPageRating">0.0</strong></div>
+            <div class="mini-metric"><span>Active Agents</span><strong id="kraPageActiveAgents">0</strong></div>
+            <div class="mini-metric"><span>Working Days</span><strong id="kraPageWorkingDays">0</strong></div>
+            <div class="mini-metric"><span>Monthly Target</span><strong id="kraPageTarget">0</strong></div>
+          </section>
+
+          <div class="filter-bar">
+            <input type="search" id="kraSearch" placeholder="Search agent name...">
+            <select id="kraStatusFilter">
+              <option value="">All statuses</option>
+              <option value="On target">On target</option>
+              <option value="Watch">Watch</option>
+              <option value="Below target">Below target</option>
+            </select>
+          </div>
+
+          <section class="kra-detail-grid">
+            <div class="kra-detail-card">
+              <h3>KRA Split</h3>
+              <div id="kraSplitRows" class="kra-split-rows"></div>
+            </div>
+            <div class="kra-detail-card">
+              <h3>Agent-wise KRA Details</h3>
+              <div id="kraPageRows" class="kra-page-table"></div>
+            </div>
+          </section>
+        </section>
+      </div>
+    </main>
+
+    <div id="centerToast" class="center-toast" role="status" aria-live="polite"></div>
+
+
+    <script>
+      const COLORS = ["#22787f","#2e6f9e","#1b7f4f","#b7791f","#7c5cc4","#d05858","#4f8f6d","#5e7ce2","#a86834","#5c9ead","#7a6f59","#4a9f8f","#9467bd"];
+      const TEAM_BUTTON_COLORS = ["#065f3f","#263b7a","#6d3f13"];
+      const KRA_TARGET_PER_DAY = 45;
+      const TEAMS = ["FDR CBP Team", "FDR Uncleared & ASTNC Team", "JGW Team"];
+
+      function profile(name, employeeId, email, designation, process, lead) {
+        return { name, employeeId, email, designation, process, lead: lead || "" };
+      }
+      function task(id, name, aht) { return { id, name, aht }; }
+
+      // Baked data — used ONLY as a local-preview fallback when this file is
+      // opened directly in a browser (no Google Apps Script backend present).
+      const TEAM_DATA = {
+        "FDR CBP Team": {
+          agentProfiles: [
+            profile("Tarun Arora","914","tarun.t1@prth.com","Analyst PSE - FDR","CBP/Webpay","Shubham Sharma"),
+            profile("Yasmeen Sayed","1023","yasmeen.sayed@prth.com","Analyst PSE - FDR","CBP/Webpay","Shubham Sharma"),
+            profile("Janmeet Kaur","988","janmeet.kour@prth.com","Analyst PSE - FDR","CBP/Webpay","Shubham Sharma"),
+            profile("Chirag Verma","976","chirag.verma@prth.com","Analyst PSE - FDR","CBP/Webpay","Shubham Sharma"),
+            profile("Shobha Jarora","1020","shobha.s@prth.com","Analyst PSE - FDR","CBP/Webpay","Shubham Sharma"),
+            profile("Vanshika Bhardwaj","1007","vanshika.bhardwaj@prth.com","Associate Analyst PSE - FDR","CBP/Webpay","Shubham Sharma"),
+            profile("Annie John","901","annie.john@prth.com","Analyst PSE - FDR","CBP/Webpay","Shubham Sharma"),
+            profile("Keshav Sharma","986","keshav.sharma@prth.com","Analyst PSE - FDR","CBP/Webpay","Onkar Sharma"),
+            profile("Pardeep Kumar","874","pardeep.p@prth.com","Analyst PSE - FDR","CBP/Webpay","Onkar Sharma"),
+            profile("Damanpreet Kaur","913","damanpreet.kaur@prth.com","Analyst PSE - FDR","CBP/Webpay","Onkar Sharma"),
+            profile("Manthan Takmardan","990","manthan.m@prth.com","Analyst PSE - FDR","CBP/Webpay","Onkar Sharma"),
+            profile("Satvir Singh","915","satvir.singh@prth.com","Analyst PSE - FDR","CBP/Webpay","Onkar Sharma"),
+            profile("Tamanna Farjin","991","tamanna.farjin@prth.com","Analyst PSE - FDR","CBP/Webpay","Onkar Sharma"),
+            profile("Kanika Sharma","1032","kanika.sharma@prth.com","Analyst PSE - FDR","CBP/Webpay","Onkar Sharma"),
+            profile("Shubham Sharma (Team Lead)","270","shubham.sharma@prth.com","Team Lead PSE - FDR","Team Lead"),
+            profile("Onkar Sharma (Team Lead)","355","onkar.sharma@prth.com","Team Lead PSE - FDR","Team Lead"),
+            profile("Himanshi Thapliyal","1029","himanshi.h@prth.com","Analyst PSE - FDR","Inbound"),
+            profile("Shradha Soni","1006","shradha.soni@prth.com","Analyst PSE - FDR","Inbound"),
+          ],
+          tasks: [
+            task("Task 1","FDR - Check By Phone",10), task("Task 2","FDR - Web Pays",4),
+            task("Task 3","FDR - Calls Audit",8), task("Task 4","FDR- WebPay Audit",4),
+            task("Task 5","FDR-CBP Reporting",5), task("Task 6","FDR - CBP Downtime",1),
+            task("Task 7","FDR - Inbound",5), task("Task 8","FDR - Funds Shortage Cases",8),
+            task("Task 9","FDR- Update To Resolve",15), task("Task 10","Office Hours",1),
+            task("Task 11","Other Value added Tasks",1),
+          ],
+        },
+        "FDR Uncleared & ASTNC Team": {
+          agentProfiles: [
+            profile("Abhimanyu Gupta","909","abhimanyu.gupta@prth.com","Analyst PSE - FDR","Uncleared Payment"),
+            profile("Abhinandan Thakur","908","abhinandan.thakur@prth.com","Analyst PSE - FDR","Uncleared Payment"),
+            profile("Jessika Gandhi","1000","jessika.gandhi@prth.com","Analyst PSE - FDR","Uncleared Payment"),
+            profile("Rachel Samson","891","rachel.samson@prth.com","Analyst PSE - FDR","Uncleared Payment"),
+            profile("Varshit Nehraik","892","varshit.nehraik@prth.com","Analyst PSE - FDR","Uncleared Payment"),
+            profile("Rashi Gurung","1005","rashi.gurung@prth.com","Analyst PSE - FDR","ASTNC"),
+            profile("Sandeep Rawat","882","sandeep.rawat@prth.com","Analyst PSE - FDR","ASTNC"),
+            profile("Laxman Bisht","884","laxman.bisht@prth.com","Analyst PSE - FDR","ASTNC"),
+            profile("Aarchi Madaan","1001","aarchi.a@prth.com","Analyst PSE - FDR","STIP Review"),
+            profile("Ankit Chauhan","989","ankit.chauhan@prth.com","Analyst PSE - FDR","STIP Review"),
+            profile("Tushar Sharma","999","tushar.sharma@prth.com","Analyst PSE - FDR","STIP Review"),
+            profile("Vikas Chauhan (Team Lead)","357","vikas.chauhan@prth.com","Team Lead PSE - FDR","Team Lead"),
+          ],
+          tasks: [
+            task("Task 1","FDR - Check By Phone",10), task("Task 2","FDR - Web Pays",3),
+            task("Task 3","FDR-CBP Reporting",5), task("Task 4","FDR - CBP Downtime",1),
+            task("Task 5","FDR - Uncleared Payments",55), task("Task 6","FDR - Uncleared Reporting",5),
+            task("Task 7","FDR - Uncleared Downtime",1), task("Task 8","FDR - ASTNC Cases",85),
+            task("Task 9","FDR - ASTNC Reporting",5), task("Task 10","FDR - ASTNC Downtime",1),
+            task("Task 11","FDR - STIP Cases",85), task("Task 12","FDR - STIP Reporting",5),
+            task("Task 13","FDR - STIP Downtime",1), task("Task 14","FDR - UTR Cases",15),
+            task("Task 15","FDR - UTR Reporting",2), task("Task 16","FDR - UTR Downtime",1),
+            task("Task 17","FDR - SV Cases",11), task("Task 18","FDR - SV Reporting",3),
+            task("Task 19","FDR - SV Downtime",1), task("Task 20","FDR - Funds Shortage Cases",8),
+            task("Task 21","FDR-Undelivered Checks",15), task("Task 22","FDR - Calls/Case Audit",6),
+            task("Task 23","FDR- WebPay/Case Email Audit",3), task("Task 24","Office Hours",1),
+            task("Task 25","Other Value added Tasks",1),
+          ],
+        },
+        "JGW Team": {
+          agentProfiles: [
+            profile("Rohit Chandel","685","rohit.chandel@prth.com","Sr. Analyst PSE - JGW","JGW : Exceptions"),
+            profile("Sachin Sharma","875","sachin.s@prth.com","Analyst PSE - JGW","JGW : CBP"),
+            profile("Ansh Saxena","1043","ansh.saxena@prth.com","Analyst PSE - JGW","JGW : CBP"),
+            profile("Naman Singh Negi","1112","naman.negi@prth.com","Analyst PSE - JGW","JGW : CBP"),
+            profile("Amit Rana","902","amit.rana@prth.com","Analyst PSE - JGW","JGW : CBP"),
+            profile("Simran","1117","simran.s@prth.com","Analyst PSE - JGW","JGW : CBP"),
+            profile("Rahul Sharma","670","rahul.sharma3@prth.com","Analyst PSE - JGW","JGW : Uncleared Payments"),
+            profile("Ruhani Garg","1048","ruhani.garg@prth.com","Associate Analyst PSE - JGW","JGW : Uncleared Payments"),
+            profile("Narinder Singh","1062","narinder.singh1@prth.com","Analyst PSE - JGW","JGW : Uncleared Payments"),
+            profile("Rahul Kumar Dhiman","1065","rahul.dhiman1@prth.com","Analyst PSE - JGW","JGW : Uncleared Payments"),
+            profile("Vikram Tanwar","1063","vikram.tanwar@prth.com","Analyst PSE - JGW","JGW : Uncleared Payments"),
+            profile("Nitin Mehra","1074","nitin.mehra@prth.com","Associate Analyst PSE - JGW","JGW : Uncleared Payments"),
+            profile("Varun Dogra (Team Lead)","334","varun.dogra@prth.com","Team Lead PSE - JGW","Team Lead"),
+          ],
+          tasks: [
+            task("Task 1","Ring Central Talk Time (in mins)",1), task("Task 2","JGW Capital One Bulk Payments Sheet Creation",60),
+            task("Task 3","JGW Other Creditors Bulk payment sheet Creation",20), task("Task 4","JGW Uncleared Worked & Completed",3),
+            task("Task 5","JGW CBP Remittance",3), task("Task 6","JGW E-mails/Escalations",4),
+            task("Task 7","JGW ACH/ICL Exceptions",3), task("Task 8","JGW & NSL ACH/ICL Exceptions Calls",3),
+            task("Task 9","JGW Master Sheet /Salesforce Update",1), task("Task 10","Voice Mails & Long Hold Comments Update in MS/SF",2),
+            task("Task 11","Audits Performed for calls",6), task("Task 12","Audits Performed for web pays",3),
+            task("Task 13","Value Added Tasks",1),
+          ],
+        },
+      };
+
+      const SAMPLE_UTIL = {
+        "JGW Team": [
+          { agent: "Sachin Sharma", totalVolume: 210, productiveHours: 54, entryDays: 7, utilization: 0.96 },
+          { agent: "Vikram Tanwar", totalVolume: 85, productiveHours: 71, entryDays: 9, utilization: 0.99 },
+          { agent: "Ruhani Garg", totalVolume: 72, productiveHours: 38, entryDays: 7, utilization: 0.68 },
+          { agent: "Naman Singh Negi", totalVolume: 188, productiveHours: 41, entryDays: 8, utilization: 0.64 },
+          { agent: "Rahul Sharma", totalVolume: 160, productiveHours: 25, entryDays: 6, utilization: 0.52 },
+          { agent: "Nitin Mehra", totalVolume: 250, productiveHours: 45, entryDays: 7, utilization: 0.80 },
+          { agent: "Rahul Kumar Dhiman", totalVolume: 190, productiveHours: 36, entryDays: 5, utilization: 0.90 },
+          { agent: "Simran", totalVolume: 120, productiveHours: 22.5, entryDays: 3, utilization: 0.94 },
+        ],
+        "FDR CBP Team": [
+          { agent: "Tarun Arora", totalVolume: 320, productiveHours: 138, entryDays: 18, utilization: 0.92 },
+          { agent: "Yasmeen Sayed", totalVolume: 290, productiveHours: 121, entryDays: 17, utilization: 0.86 },
+          { agent: "Chirag Verma", totalVolume: 305, productiveHours: 128, entryDays: 18, utilization: 0.88 },
+          { agent: "Annie John", totalVolume: 240, productiveHours: 96, entryDays: 16, utilization: 0.72 },
+          { agent: "Damanpreet Kaur", totalVolume: 210, productiveHours: 82, entryDays: 15, utilization: 0.66 },
+          { agent: "Satvir Singh", totalVolume: 198, productiveHours: 74, entryDays: 14, utilization: 0.58 },
+        ],
+        "FDR Uncleared & ASTNC Team": [
+          { agent: "Abhimanyu Gupta", totalVolume: 142, productiveHours: 130, entryDays: 18, utilization: 0.90 },
+          { agent: "Rachel Samson", totalVolume: 128, productiveHours: 118, entryDays: 17, utilization: 0.83 },
+          { agent: "Rashi Gurung", totalVolume: 96, productiveHours: 102, entryDays: 16, utilization: 0.79 },
+          { agent: "Aarchi Madaan", totalVolume: 88, productiveHours: 79, entryDays: 14, utilization: 0.62 },
+          { agent: "Tushar Sharma", totalVolume: 74, productiveHours: 64, entryDays: 12, utilization: 0.55 },
+        ],
+      };
+
+      const SAMPLE_KRA = {
+        "FDR CBP Team": [
+          { agent: "Tarun Arora", target: 990, totalVolume: 1180, totalProduction: 1120, auditCount: 12, qualityScore: 0.99, plannedShrinkage: 1, unplannedShrinkage: 0, productionContribution: 0.68, qualityContribution: 0.3, shrinkageContribution: 0.1, overallAttainment: 1.05, actualRating: 3.9, status: "On target" },
+          { agent: "Yasmeen Sayed", target: 990, totalVolume: 1040, totalProduction: 986, auditCount: 10, qualityScore: 0.96, plannedShrinkage: 2, unplannedShrinkage: 0, productionContribution: 0.57, qualityContribution: 0.18, shrinkageContribution: 0.1, overallAttainment: 0.85, actualRating: 2.4, status: "Watch" },
+          { agent: "Chirag Verma", target: 990, totalVolume: 1100, totalProduction: 1045, auditCount: 11, qualityScore: 0.98, plannedShrinkage: 1, unplannedShrinkage: 0, productionContribution: 0.63, qualityContribution: 0.24, shrinkageContribution: 0.1, overallAttainment: 0.97, actualRating: 3.3, status: "Watch" },
+        ],
+        "FDR Uncleared & ASTNC Team": [
+          { agent: "Abhimanyu Gupta", target: 990, totalVolume: 142, totalProduction: 1030, auditCount: 9, qualityScore: 0.97, plannedShrinkage: 1, unplannedShrinkage: 0, productionContribution: 0.62, qualityContribution: 0.24, shrinkageContribution: 0.1, overallAttainment: 0.96, actualRating: 3.2, status: "Watch" },
+        ],
+        "JGW Team": [
+          { agent: "Sachin Sharma", target: 990, totalVolume: 210, totalProduction: 1080, auditCount: 14, qualityScore: 1.0, plannedShrinkage: 0, unplannedShrinkage: 0, productionContribution: 0.65, qualityContribution: 0.3, shrinkageContribution: 0.1, overallAttainment: 1.05, actualRating: 3.9, status: "On target" },
+          { agent: "Nitin Mehra", target: 990, totalVolume: 250, totalProduction: 940, auditCount: 8, qualityScore: 0.95, plannedShrinkage: 3, unplannedShrinkage: 1, productionContribution: 0.57, qualityContribution: 0.18, shrinkageContribution: 0, overallAttainment: 0.75, actualRating: 1.0, status: "Below target" },
+        ],
+      };
+
+      const COMPARE_PREVIEW = {
+        "FDR CBP Team": { totalVolume: 2840, productiveHours: 612, avgUtilization: 0.78, avgRating: 3.6, targetMetPct: 0.65 },
+        "FDR Uncleared & ASTNC Team": { totalVolume: 1920, productiveHours: 488, avgUtilization: 0.71, avgRating: 3.2, targetMetPct: 0.55 },
+        "JGW Team": { totalVolume: 1275, productiveHours: 332, avgUtilization: 0.80, avgRating: 3.7, targetMetPct: 0.72 },
+      };
+
+      const FDR_CBP_SECTIONS = [
+        { min: 1, max: 2, label: "CBP / Webpay Tasks", color: "#064e3b" },
+        { min: 5, max: 6, label: "CBP Reporting / Downtime", color: "#0f766e" },
+        { min: 7, max: 7, label: "IB / Inbound Tasks", color: "#075985" },
+        { min: 8, max: 11, label: "Other Tasks", color: "#374151", isOther: true },
+      ];
+      const UNCLEARED_ASTNC_SECTIONS = [
+        { min: 1, max: 4, label: "CBP / Shared Tasks", color: "#064e3b" },
+        { min: 5, max: 7, label: "Uncleared Tasks", color: "#7f1d1d" },
+        { min: 8, max: 10, label: "ASTNC Tasks", color: "#4c1d95" },
+        { min: 11, max: 13, label: "STIP Tasks", color: "#166534" },
+        { min: 14, max: 16, label: "UTR Tasks", color: "#854d0e" },
+        { min: 17, max: 19, label: "SV Tasks", color: "#075985" },
+        { min: 20, max: 25, label: "Other Tasks", color: "#374151", isOther: true },
+      ];
+
+      const state = {
+        localPreview: false,
+        teams: [],
+        teamData: {},
+        access: { email: "", isAdmin: false, teamAccess: {} },
+        workdayHours: 8,
+        targetUtilization: 0.85,
+        tasks: [],
+        agentProfiles: [],
+        selectedTeam: "",
+        dashboardView: "mine",
+        kraAgentMode: "all",
+        kraAgentName: "",
+        currentDashboard: null,
+        currentKraDashboard: null,
+        agentSearch: "",
+        statusFilterValue: "",
+        kraSearch: "",
+        kraStatusFilterValue: "",
+        toastTimer: null,
+      };
+
+      const el = (id) => document.getElementById(id);
+      function todayISO() { return new Date().toISOString().slice(0, 10); }
+      function monthISO() { return new Date().toISOString().slice(0, 7); }
+
+      // ---------- Init / data layer ----------
+      function init() {
+        bindEvents();
+        if (!window.google || !google.script || !google.script.run) { loadPreview(); return; }
+        state.localPreview = false;
+        google.script.run
+          .withSuccessHandler((data) => loadAppData(data))
+          .withFailureHandler((err) => { loadPreview(); showMessage((err && err.message) || "Could not reach Google Sheets; showing local preview.", "bad"); })
+          .getAppData();
+      }
+
+      function loadPreview() {
+        state.localPreview = true;
+        const teamData = {};
+        TEAMS.forEach((t) => { teamData[t] = { agents: TEAM_DATA[t].agentProfiles.map((p) => p.name), agentProfiles: TEAM_DATA[t].agentProfiles, tasks: TEAM_DATA[t].tasks }; });
+        loadAppData({
+          teams: TEAMS, teamData,
+          access: { email: "preview@local", isAdmin: true, teamAccess: Object.fromEntries(TEAMS.map((t) => [t, { canViewAllAgents: true, agents: teamData[t].agents }])) },
+          workdayHours: 8, targetUtilization: 0.85, today: todayISO(), month: monthISO(),
+        });
+        showMessage("Local preview — deploy to Google Apps Script to save into Google Sheets.", "");
+      }
+
+      function loadAppData(data) {
+        state.teams = data.teams || [];
+        state.teamData = data.teamData || {};
+        state.access = data.access || { email: "", isAdmin: false, teamAccess: {} };
+        state.workdayHours = data.workdayHours || 8;
+        state.targetUtilization = data.targetUtilization || 0.85;
+        renderTeamButtons(state.teams);
+        el("workDate").value = data.today || todayISO();
+        el("dailyDatePicker").value = data.today || todayISO();
+        el("monthPicker").value = data.month || monthISO();
+        el("kraMonthPicker").value = el("monthPicker").value;
+        el("bulkMonthPicker").value = el("monthPicker").value;
+        el("attMonthPicker").value = el("monthPicker").value;
+        el("loading").hidden = true;
+        el("teamChooser").hidden = false;
+        updateAccessUi();
+        if (!state.teams.length) {
+          el("teamChooser").innerHTML = `<h2>No team access found</h2><p>Open the portal with your PRTH Google account. If this persists, ask the admin to confirm your email in the Agents sheet.</p>`;
+        }
+        calculate();
+      }
+
+      function updateAccessUi() {
+        const a = state.access || {};
+        const role = a.isAdmin ? "Admin" : (anyLead() ? "Team Lead" : "Agent");
+        el("userPill").textContent = `${a.email || "Guest"} · ${role}`;
+        el("compareButton").hidden = !a.isAdmin;
+      }
+      function anyLead() {
+        const t = state.access && state.access.teamAccess;
+        return t ? Object.keys(t).some((k) => t[k].canViewAllAgents) : false;
+      }
+      function canUseAllView() {
+        return Boolean(state.access && state.access.teamAccess && state.access.teamAccess[state.selectedTeam] && state.access.teamAccess[state.selectedTeam].canViewAllAgents);
+      }
+      function updateBulkAccess() {
+        const can = canUseAllView();
+        el("bulkButton").hidden = !can;
+        el("kraEntryPanel").hidden = !can;
+      }
+
+      function renderTeamButtons(teams) {
+        el("teamButtons").innerHTML = (teams || []).map((team) => {
+          const i = Math.max(0, TEAMS.indexOf(team));
+          return `<button type="button" class="team-button" data-team="${escapeHtml(team)}" style="--team-color:${TEAM_BUTTON_COLORS[i % TEAM_BUTTON_COLORS.length]}">${escapeHtml(team)}</button>`;
+        }).join("");
+        el("teamButtons").querySelectorAll("button[data-team]").forEach((b) => b.addEventListener("click", () => selectTeam(b.dataset.team)));
+      }
+
+      function normalizeProfiles(td) {
+        if (td.agentProfiles && td.agentProfiles.length) return td.agentProfiles;
+        return (td.agents || []).map((name) => ({ name, employeeId: "", email: "", designation: "", process: name.includes("(Team Lead)") ? "Team Lead" : "Agents", lead: "" }));
+      }
+
+      function selectTeam(team) {
+        const td = state.teamData[team];
+        if (!td) { showMessage("You do not have access to this team.", "bad"); return; }
+        state.selectedTeam = team;
+        state.tasks = td.tasks || [];
+        state.agentProfiles = normalizeProfiles(td);
+        state.dashboardView = "mine";
+        state.kraAgentMode = "all";
+        state.kraAgentName = "";
+        state.agentSearch = ""; state.statusFilterValue = ""; state.kraSearch = ""; state.kraStatusFilterValue = "";
+        el("agentSearch").value = ""; el("statusFilter").value = ""; el("kraSearch").value = ""; el("kraStatusFilter").value = "";
+        state.currentDashboard = emptyDashboard();
+        state.currentKraDashboard = state.localPreview ? buildKraDashboard(team) : emptyKraDashboard();
+        renderAgents(state.agentProfiles);
+        if (state.agentProfiles.length === 1) { el("agent").value = state.agentProfiles[0].name; renderAgentProfile(); }
+        renderKraAgentPicker();
+        renderTasks(state.tasks);
+        el("entryTeamName").textContent = team;
+        el("dashboardTeamName").textContent = team;
+        el("kraPageTeamName").textContent = team;
+        el("bulkTeamName").textContent = team;
+        el("attTeamName").textContent = team;
+        el("teamButtons").querySelectorAll("button[data-team]").forEach((b) => b.classList.toggle("active", b.dataset.team === team));
+        showSection("app");
+        showMessage("", "");
+        clearEntryFields();
+        updateBulkAccess();
+        updateDashboardViewButtons();
+        renderDashboard(state.currentDashboard);
+        refreshDashboard();
+      }
+
+      function buildDashboard(team) {
+        const rows = (SAMPLE_UTIL[team] || []).map((r) => ({ ...r, status: getStatus(r.totalVolume, r.utilization) }));
+        const daily = rows.map((r) => ({ agent: r.agent, totalVolume: Math.round(r.totalVolume / Math.max(r.entryDays, 1)), productiveHours: +(r.productiveHours / Math.max(r.entryDays, 1)).toFixed(1), entryDays: r.entryDays > 0 ? 1 : 0, utilization: r.utilization, status: r.status }));
+        return { team, agents: rows, dailyAgents: daily };
+      }
+      function buildKraDashboard(team) {
+        return { team, month: el("kraMonthPicker").value, workingDays: 22, target: 900, agents: (SAMPLE_KRA[team] || []).map((a) => ({ ...a })) };
+      }
+      function emptyDashboard() { return { agents: [], dailyAgents: [] }; }
+      function emptyKraDashboard() { return { team: state.selectedTeam, month: el("kraMonthPicker").value, workingDays: 0, target: 0, agents: [] }; }
+
+      // ---------- Navigation ----------
+      function showSection(name) {
+        ["app", "bulkPage", "attendancePage", "comparePage", "kraPage"].forEach((s) => { const n = el(s); if (n) n.hidden = (s !== name); });
+        el("teamChooser").hidden = (name === "kraPage" || name === "comparePage");
+        const navMap = { app: "navDashboard", bulkPage: "bulkButton", attendancePage: "attendanceButton", comparePage: "compareButton", kraPage: "kraButton" };
+        document.querySelectorAll(".header-meta .pill").forEach((p) => p.classList.remove("active"));
+        if (navMap[name] && el(navMap[name])) el(navMap[name]).classList.add("active");
+        if (name === "kraPage") updateBulkAccess();
+      }
+      function requireTeam() {
+        if (!state.selectedTeam) { showMessage("Please select a team first.", "bad"); return false; }
+        return true;
+      }
+
+      // ---------- Agents / profile ----------
+      function renderAgents(profiles) {
+        const groups = {};
+        profiles.forEach((p) => { const g = p.lead ? `${p.lead} Team` : (p.process || "Agents"); (groups[g] = groups[g] || []).push(p); });
+        el("agent").innerHTML = ['<option value="">Select agent</option>']
+          .concat(Object.keys(groups).map((g) => `<optgroup label="${escapeHtml(g)}">${groups[g].map((p) => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`).join("")}</optgroup>`)).join("");
+        renderAgentProfile();
+      }
+      function renderAgentProfile() {
+        const p = state.agentProfiles.find((x) => x.name === el("agent").value);
+        if (!p) { el("agentProfile").hidden = true; el("agentProfile").innerHTML = ""; return; }
+        el("agentProfile").hidden = false;
+        el("agentProfile").innerHTML = `
+          <div><span>Employee ID</span><strong>${escapeHtml(p.employeeId || "-")}</strong></div>
+          <div><span>Email</span><strong>${escapeHtml(p.email || "-")}</strong></div>
+          <div><span>Designation</span><strong>${escapeHtml(p.designation || "-")}</strong></div>
+          <div><span>Process</span><strong>${escapeHtml(p.process || "-")}</strong></div>
+          <div><span>Lead</span><strong>${escapeHtml(p.lead || "-")}</strong></div>`;
+        el("submittedBy").value = p.email || "";
+      }
+
+      // ---------- Tasks ----------
+      function renderTasks(tasks) {
+        if (!tasks.length) { el("taskRows").innerHTML = `<div class="loading">This team has no tasks configured yet.</div>`; return; }
+        let n = 1;
+        const rows = getTaskGroups(tasks).map((g) => `<div class="section-row" style="--section-color:${g.color}">${escapeHtml(g.label)}</div>` + g.tasks.map((t) => renderTaskRow(t, n++)).join("")).join("");
+        el("taskRows").innerHTML = `<div class="entry-grid"><div class="entry-grid-head"><div>Task</div><div>Task Name</div><div>AHT</div><div>Count</div><div>Comment</div></div>${rows}</div>`;
+        el("taskRows").querySelectorAll("input").forEach((input) => { input.value = ""; input.addEventListener("input", () => { input.value = input.value.replace(/\D/g, ""); calculate(); }); });
+      }
+      function renderTaskRow(t, n) {
+        return `<div class="task-row"><div class="task-id">Task ${n}</div><div class="task-name">${escapeHtml(t.name)}</div><div class="aht">${Number(t.aht).toFixed(0)} min</div><div class="task-count"><input autocomplete="off" inputmode="numeric" type="text" value="" data-task-id="${escapeHtml(t.id)}" aria-label="${escapeHtml(t.id)} count"></div><div class="task-comment"><textarea rows="1" data-task-comment="${escapeHtml(t.id)}" placeholder="Optional"></textarea></div></div>`;
+      }
+      function getTaskGroups(tasks) {
+        const rules = getSectionRules();
+        const isAudit = (t) => /audit/i.test(t.name || "");
+        const num = (t) => Number(String(t.id).replace(/\D/g, ""));
+        const isOther = (t) => Boolean(rules.find((s) => s.isOther && num(t) >= s.min && num(t) <= s.max)) || /other|office hours|value added/i.test(t.name || "");
+        const audit = tasks.filter(isAudit);
+        const other = tasks.filter((t) => !isAudit(t) && isOther(t));
+        const regular = tasks.filter((t) => !isAudit(t) && !isOther(t));
+        const groups = [];
+        if (rules.length) {
+          rules.filter((s) => !s.isOther).forEach((s) => { const ts = regular.filter((t) => num(t) >= s.min && num(t) <= s.max); if (ts.length) groups.push({ ...s, tasks: ts }); });
+        } else if (regular.length) { groups.push({ label: "Daily Tasks", color: "#064e3b", tasks: regular }); }
+        if (audit.length) groups.push({ label: "Audit Tasks", color: "#7f1d1d", tasks: audit });
+        if (other.length) groups.push({ label: "Other Tasks", color: "#374151", tasks: other });
+        return groups;
+      }
+      function getSectionRules() {
+        if (state.selectedTeam === "FDR CBP Team") return FDR_CBP_SECTIONS;
+        if (state.selectedTeam === "FDR Uncleared & ASTNC Team") return UNCLEARED_ASTNC_SECTIONS;
+        return [];
+      }
+
+      // ---------- Live calculation / submit ----------
+      function getCounts() { const c = {}; el("taskRows").querySelectorAll("input[data-task-id]").forEach((i) => { c[i.dataset.taskId] = Number(i.value) || 0; }); return c; }
+      function getComments() { const c = {}; el("taskRows").querySelectorAll("textarea[data-task-comment]").forEach((t) => { c[t.dataset.taskComment] = t.value.trim(); }); return c; }
+      function calculateTotals(counts) {
+        const totalVolume = state.tasks.reduce((s, t) => s + (Number(counts[t.id]) || 0), 0);
+        const productiveMinutes = state.tasks.reduce((s, t) => s + (Number(counts[t.id]) || 0) * t.aht, 0);
+        const productiveHours = productiveMinutes / 60;
+        return { totalVolume, productiveMinutes, productiveHours, utilization: productiveHours / state.workdayHours };
+      }
+      function calculate() {
+        const t = calculateTotals(getCounts());
+        const status = getStatus(t.totalVolume, t.utilization);
+        el("totalVolume").textContent = formatNumber(t.totalVolume, 0);
+        el("productiveMinutes").textContent = formatNumber(t.productiveMinutes, 0);
+        el("productiveHours").textContent = formatNumber(t.productiveHours, 1);
+        el("utilization").textContent = formatPercent(t.utilization);
+        el("status").textContent = status;
+        el("status").className = statusClass(status);
+      }
+      function clearEntryFields() {
+        el("taskRows").querySelectorAll("input[data-task-id]").forEach((i) => { i.value = ""; });
+        el("taskRows").querySelectorAll("textarea[data-task-comment]").forEach((t) => { t.value = ""; });
+        el("notes").value = "";
+        calculate();
+      }
+      function submitEntry(e) {
+        e.preventDefault();
+        if (!el("agent").value) { showMessage("Please select an agent.", "bad"); return; }
+        const payload = { date: el("workDate").value, team: state.selectedTeam, agent: el("agent").value, submittedBy: el("submittedBy").value, notes: el("notes").value, counts: getCounts(), comments: getComments() };
+        if (state.localPreview) {
+          const t = calculateTotals(payload.counts);
+          showMessage(`Preview saved for ${state.selectedTeam}. ${formatNumber(t.totalVolume, 0)} total volume, ${formatPercent(t.utilization)} utilization.`, "good");
+          showCenterToast("Entry preview saved.", "good"); clearEntryFields(); return;
+        }
+        el("submitButton").disabled = true;
+        google.script.run
+          .withSuccessHandler((r) => { showMessage(`Saved. ${formatNumber(r.totals.totalVolume, 0)} total volume, ${formatPercent(r.totals.utilization)} utilization.`, "good"); showCenterToast("Saved to Google Sheets.", "good"); clearEntryFields(); if (r.dashboard) renderDashboard(r.dashboard); el("submitButton").disabled = false; })
+          .withFailureHandler((err) => { showMessage(err.message || "Could not save.", "bad"); showCenterToast(err.message || "Could not save.", "bad"); el("submitButton").disabled = false; })
+          .saveDailyEntry(payload);
+      }
+
+      // ---------- Dashboard ----------
+      function refreshDashboard() {
+        if (!state.selectedTeam) return;
+        if (state.localPreview) { renderDashboard(buildDashboard(state.selectedTeam)); return; }
+        el("refreshButton").disabled = true;
+        google.script.run
+          .withSuccessHandler((d) => { renderDashboard(d); el("refreshButton").disabled = false; })
+          .withFailureHandler((e) => { showMessage(e.message || "Could not refresh dashboard.", "bad"); el("refreshButton").disabled = false; })
+          .getMonthlyUtilization({ month: el("monthPicker").value, dailyDate: el("dailyDatePicker").value, team: state.selectedTeam });
+      }
+      function renderDashboard(dashboard) {
+        const data = dashboard || emptyDashboard();
+        state.currentDashboard = data;
+        if (state.dashboardView === "all" && !canUseAllView()) state.dashboardView = "mine";
+        const visible = applyUtilFilters(getVisibleAgentRows(data.agents || []));
+        const visibleDaily = getVisibleAgentRows(data.dailyAgents || []);
+        const totals = getVisibleTotals(visible);
+        el("dashVolume").textContent = formatNumber(totals.totalVolume, 0);
+        el("dashHours").textContent = formatNumber(totals.productiveHours, 1);
+        el("dashUtilization").textContent = formatPercent(totals.avgUtilization);
+        el("dashAgents").textContent = formatNumber(totals.activeAgents, 0);
+        renderPie(visible);
+        renderAgentRows(visible, visibleDaily);
+        updateDashboardViewButtons();
+      }
+      function applyUtilFilters(agents) {
+        let out = agents;
+        if (state.agentSearch) out = out.filter((a) => a.agent.toLowerCase().includes(state.agentSearch.toLowerCase()));
+        if (state.statusFilterValue) out = out.filter((a) => a.status === state.statusFilterValue);
+        return out;
+      }
+      function getVisibleAgentRows(agents) {
+        if (state.dashboardView === "all") return agents;
+        const sel = el("agent").value;
+        return sel ? agents.filter((a) => a.agent === sel) : [];
+      }
+      function getVisibleTotals(agents) {
+        const activeAgents = agents.filter((a) => a.entryDays > 0).length;
+        const totalVolume = agents.reduce((s, a) => s + Number(a.totalVolume || 0), 0);
+        const productiveHours = agents.reduce((s, a) => s + Number(a.productiveHours || 0), 0);
+        const entryDays = agents.reduce((s, a) => s + Number(a.entryDays || 0), 0);
+        const avgUtilization = entryDays > 0 ? productiveHours / (entryDays * state.workdayHours) : 0;
+        return { activeAgents, totalVolume, productiveHours, avgUtilization };
+      }
+      function renderPie(agents) {
+        const active = agents.filter((a) => Number(a.productiveHours) > 0);
+        const total = active.reduce((s, a) => s + Number(a.productiveHours), 0);
+        if (!active.length || total === 0) { el("pieChart").className = "pie pie-empty"; el("pieChart").style.background = ""; el("pieChart").textContent = "No data"; el("pieLegend").innerHTML = ""; return; }
+        let cursor = 0;
+        const segs = active.map((a, i) => { const start = cursor; cursor += (Number(a.productiveHours) / total) * 100; return `${COLORS[i % COLORS.length]} ${start.toFixed(2)}% ${cursor.toFixed(2)}%`; });
+        el("pieChart").className = "pie"; el("pieChart").textContent = ""; el("pieChart").style.background = `conic-gradient(${segs.join(", ")})`;
+        el("pieLegend").innerHTML = active.map((a, i) => `<div class="legend-row"><span class="swatch" style="background:${COLORS[i % COLORS.length]}"></span><span>${escapeHtml(a.agent)}</span><strong>${formatNumber(a.productiveHours, 1)}h</strong></div>`).join("");
+      }
+      function renderAgentRows(agents, dailyAgents) {
+        const sorted = [...agents].sort((a, b) => Number(b.utilization) - Number(a.utilization));
+        const dailyBy = {}; (dailyAgents || []).forEach((d) => { dailyBy[d.agent] = d; });
+        if (!sorted.length) { el("agentUtilizationRows").innerHTML = state.dashboardView === "mine" ? `<div class="loading">Select your agent name above to see your daily and monthly utilization.</div>` : `<div class="loading">No agents match the current search/filter.</div>`; return; }
+        el("agentUtilizationRows").innerHTML = sorted.map((a) => {
+          const width = Math.min(Math.round(Number(a.utilization || 0) * 100), 140);
+          const d = dailyBy[a.agent] || { totalVolume: 0, productiveHours: 0, utilization: 0 };
+          return `<div class="agent-row"><div class="agent-row-top"><strong>${escapeHtml(a.agent)}</strong><span class="status-chip ${statusClass(a.status)}">${escapeHtml(a.status)} · ${formatPercent(a.utilization)}</span></div><div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div><span>Monthly: ${formatNumber(a.productiveHours, 1)} hours · ${formatNumber(a.totalVolume, 0)} volume · ${formatNumber(a.entryDays, 0)} days</span><br><span>Daily: ${formatNumber(d.productiveHours, 1)} hours · ${formatNumber(d.totalVolume, 0)} volume · ${formatPercent(d.utilization)}</span></div>`;
+        }).join("");
+      }
+      function setDashboardView(view) {
+        if (view === "all" && !canUseAllView()) { state.dashboardView = "mine"; renderDashboard(state.currentDashboard); return; }
+        state.dashboardView = view;
+        renderDashboard(state.currentDashboard);
+      }
+      function updateDashboardViewButtons() {
+        if (state.dashboardView === "all" && !canUseAllView()) state.dashboardView = "mine";
+        el("myViewButton").classList.toggle("active", state.dashboardView === "mine");
+        el("allViewButton").classList.toggle("active", state.dashboardView === "all");
+        el("allViewButton").disabled = !canUseAllView();
+        const sel = el("agent").value;
+        if (state.dashboardView === "all") el("viewNote").textContent = "Admin / Team Lead view shows all agents for the selected team.";
+        else if (sel) el("viewNote").textContent = sel.includes("(Team Lead)") ? "Team lead selected. Use Admin / Lead View to see the full team." : "My Utilization view shows only the selected agent's data.";
+        else el("viewNote").textContent = "Select your agent name to see your own utilization.";
+      }
+
+      // ---------- CSV export ----------
+      function downloadCsv(filename, rows) {
+        const csv = rows.map((r) => r.map(csvCell).join(",")).join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob); link.download = filename;
+        document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(link.href);
+      }
+      function csvCell(v) { const t = String(v == null ? "" : v); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; }
+      function exportUtilCsv() {
+        const data = state.currentDashboard || { agents: [] };
+        const visible = applyUtilFilters(getVisibleAgentRows(data.agents || []));
+        if (!visible.length) { showCenterToast("No rows to export.", "bad"); return; }
+        const rows = [["Agent", "Total Volume", "Productive Hours", "Utilization %", "Entry Days", "Status"]];
+        visible.forEach((a) => rows.push([a.agent, a.totalVolume, a.productiveHours, Math.round(a.utilization * 100), a.entryDays, a.status]));
+        downloadCsv(`${state.selectedTeam.replace(/[^a-z0-9]+/gi, "-")}-utilization.csv`, rows);
+        showCenterToast("Utilization CSV downloaded.", "good");
+      }
+      function exportKraCsv() {
+        const agents = applyKraFilters(getKraReportAgents((state.currentKraDashboard || { agents: [] }).agents || []));
+        if (!agents.length) { showCenterToast("No KRA rows to export.", "bad"); return; }
+        const rows = [["Agent", "Volume", "Production", "Target", "Audit Count", "Quality %", "Prod 60%", "Quality 30%", "Shrinkage 10%", "Attainment %", "Rating", "Status"]];
+        agents.forEach((a) => rows.push([a.agent, a.totalVolume, a.totalProduction, a.target, a.auditCount, Math.round((a.qualityScore || 0) * 100), Math.round((a.productionContribution || 0) * 100), Math.round((a.qualityContribution || 0) * 100), Math.round((a.shrinkageContribution || 0) * 100), Math.round((a.overallAttainment || 0) * 100), Number(a.actualRating || 0).toFixed(1), a.status]));
+        downloadCsv(`${state.selectedTeam.replace(/[^a-z0-9]+/gi, "-")}-kra.csv`, rows);
+        showCenterToast("KRA CSV downloaded.", "good");
+      }
+
+      // ---------- Attendance ----------
+      function getWeekdayDates(month) {
+        const [y, m] = String(month || "").split("-").map(Number);
+        if (!y || !m) return [];
+        const dates = []; const cur = new Date(y, m - 1, 1);
+        while (cur.getMonth() === m - 1) { const day = cur.getDay(); dates.push({ date: new Date(cur), day, weekend: day === 0 || day === 6 }); cur.setDate(cur.getDate() + 1); }
+        return dates;
+      }
+      function openAttendance() {
+        if (!requireTeam()) return;
+        showSection("attendancePage");
+        el("attMonthPicker").value = el("monthPicker").value;
+        refreshAttendance();
+      }
+      function refreshAttendance() {
+        if (!state.selectedTeam) { el("attTable").innerHTML = `<div class="loading">Select a team first.</div>`; return; }
+        if (state.localPreview) { renderAttendanceGrid(simulateAttendance()); return; }
+        el("attTable").innerHTML = `<div class="loading">Loading attendance...</div>`;
+        google.script.run
+          .withSuccessHandler((res) => renderAttendanceGrid(res))
+          .withFailureHandler((e) => { el("attTable").innerHTML = `<div class="loading">${escapeHtml(e.message || "Could not load attendance.")}</div>`; })
+          .getAttendance({ team: state.selectedTeam, month: el("attMonthPicker").value });
+      }
+      function simulateAttendance() {
+        const month = el("attMonthPicker").value || monthISO();
+        const weekdays = getWeekdayDates(month).filter((d) => !d.weekend);
+        const utilBy = {}; (state.currentDashboard ? state.currentDashboard.agents : []).forEach((a) => { utilBy[a.agent] = a; });
+        const agents = state.agentProfiles.filter((p) => !isLeadAgentName(p.name)).map((p) => p.name);
+        const presentByAgent = {};
+        agents.forEach((name, idx) => {
+          const u = utilBy[name];
+          const days = u ? Math.min(u.entryDays || 0, weekdays.length) : Math.max(0, weekdays.length - (idx % 4) - 3);
+          presentByAgent[name] = weekdays.slice(0, days).map((d) => fmtKey(d.date));
+        });
+        return { team: state.selectedTeam, month, agents, presentByAgent };
+      }
+      function fmtKey(date) { return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-"); }
+      function renderAttendanceGrid(res) {
+        const month = (res && res.month) || el("attMonthPicker").value || monthISO();
+        const dates = getWeekdayDates(month);
+        const weekdays = dates.filter((d) => !d.weekend);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const agents = (res && res.agents && res.agents.length) ? res.agents : state.agentProfiles.filter((p) => !isLeadAgentName(p.name)).map((p) => p.name);
+        const presentByAgent = (res && res.presentByAgent) || {};
+        const presentSets = {}; agents.forEach((a) => { presentSets[a] = new Set(presentByAgent[a] || []); });
+
+        const headCells = dates.map((d) => `<th class="${d.weekend ? "att-weekend" : ""}">${d.date.getDate()}</th>`).join("");
+        const bodyRows = agents.map((name) => {
+          let present = 0;
+          const cells = dates.map((d) => {
+            if (d.weekend) return `<td class="att-cell att-weekend"></td>`;
+            const key = fmtKey(d.date);
+            if (presentSets[name].has(key)) { present++; return `<td class="att-cell att-present" title="Submitted"></td>`; }
+            if (d.date > today) return `<td class="att-cell att-future" title="Future"></td>`;
+            return `<td class="att-cell att-absent" title="No data"></td>`;
+          }).join("");
+          const pct = weekdays.length ? Math.round((present / weekdays.length) * 100) : 0;
+          return `<tr><td class="att-agent">${escapeHtml(name)}</td>${cells}<td class="att-pct">${pct}%</td></tr>`;
+        }).join("");
+        const summaryCells = dates.map((d) => {
+          if (d.weekend) return `<td class="att-weekend"></td>`;
+          if (d.date > today) return `<td class="att-future">–</td>`;
+          const key = fmtKey(d.date);
+          const subs = agents.filter((a) => presentSets[a].has(key)).length;
+          return `<td>${agents.length ? Math.round((subs / agents.length) * 100) : 0}%</td>`;
+        }).join("");
+
+        el("attTable").innerHTML = `<table class="att-table"><thead><tr><th class="att-agent">Agent</th>${headCells}<th class="att-pct">Att %</th></tr></thead><tbody>${bodyRows || ""}<tr class="att-summary-row"><td class="att-agent">Daily Submission %</td>${summaryCells}<td class="att-pct"></td></tr></tbody></table>`;
+      }
+
+      // ---------- Compare teams ----------
+      function openCompare() {
+        showSection("comparePage");
+        refreshCompare();
+      }
+      function refreshCompare() {
+        if (state.localPreview) { renderCompareCards(TEAMS.map((t) => ({ team: t, ...COMPARE_PREVIEW[t] }))); return; }
+        el("compareGrid").innerHTML = `<div class="loading">Loading team comparison...</div>`;
+        el("compareChart").innerHTML = "";
+        google.script.run
+          .withSuccessHandler((res) => renderCompareCards((res && res.teams) || []))
+          .withFailureHandler((e) => { el("compareGrid").innerHTML = `<div class="loading">${escapeHtml(e.message || "Could not load comparison.")}</div>`; })
+          .getTeamComparison({ month: el("monthPicker").value });
+      }
+      function renderCompareCards(teams) {
+        if (!teams.length) { el("compareGrid").innerHTML = `<div class="loading">No team data available.</div>`; el("compareChart").innerHTML = ""; return; }
+        el("compareGrid").innerHTML = teams.map((d) => {
+          const i = Math.max(0, TEAMS.indexOf(d.team));
+          return `<div class="compare-col"><div class="compare-col-head" style="--col-color:${TEAM_BUTTON_COLORS[i % TEAM_BUTTON_COLORS.length]}">${escapeHtml(d.team)}</div><div class="compare-col-body">
+            <div class="compare-metric"><span>Total Volume</span><strong>${formatNumber(d.totalVolume, 0)}</strong></div>
+            <div class="compare-metric"><span>Productive Hours</span><strong>${formatNumber(d.productiveHours, 0)}</strong></div>
+            <div class="compare-metric"><span>Avg Utilization</span><strong>${formatPercent(d.avgUtilization)}</strong></div>
+            <div class="compare-metric"><span>Avg KRA Rating</span><strong>${Number(d.avgRating || 0).toFixed(1)}</strong></div>
+            <div class="compare-metric"><span>Target Met</span><strong>${formatPercent(d.targetMetPct)}</strong></div>
+          </div></div>`;
+        }).join("");
+        renderCompareChart(teams);
+      }
+      function renderCompareChart(teams) {
+        const W = 720, H = 300, pad = 50, barW = 90, gap = 80, baseX = pad + 30, chartH = H - pad - 30;
+        const bars = teams.map((d, i) => {
+          const util = Number(d.avgUtilization || 0);
+          const h = Math.round(Math.min(util, 1) * chartH);
+          const x = baseX + i * (barW + gap), y = (H - pad) - h, color = TEAM_BUTTON_COLORS[Math.max(0, TEAMS.indexOf(d.team)) % TEAM_BUTTON_COLORS.length];
+          return `<rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="6" fill="${color}"></rect><text x="${x + barW / 2}" y="${y - 8}" text-anchor="middle" font-size="15" font-weight="900" fill="#0b3024">${Math.round(util * 100)}%</text><text x="${x + barW / 2}" y="${H - pad + 20}" text-anchor="middle" font-size="11" font-weight="700" fill="#566b62">${escapeHtml(String(d.team).replace(" Team", ""))}</text>`;
+        }).join("");
+        const grid = [0, 0.25, 0.5, 0.75, 1].map((g) => { const y = (H - pad) - g * chartH; return `<line x1="${baseX - 10}" y1="${y}" x2="${W - 20}" y2="${y}" stroke="#d6e6df" stroke-width="1"></line><text x="${baseX - 16}" y="${y + 4}" text-anchor="end" font-size="10" fill="#9bb0a8">${Math.round(g * 100)}%</text>`; }).join("");
+        el("compareChart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:760px;">${grid}<line x1="${baseX - 10}" y1="${H - pad}" x2="${W - 20}" y2="${H - pad}" stroke="#bdd5cc" stroke-width="2"></line>${bars}</svg>`;
+      }
+
+      // ---------- KRA ----------
+      function getKraWeight(t) { return (Number(t && t.aht) || 0) / 10; }
+      function isLeadAgentName(name) { return String(name || "").includes("(Team Lead)"); }
+      function getAgentProcess(name) { const p = state.agentProfiles.find((x) => x.name === name); return p ? (p.process || "-") : "-"; }
+      function getKraReportAgents(agents) { return agents.filter((a) => !isLeadAgentName(a.agent)).sort((a, b) => Number(b.overallAttainment || 0) - Number(a.overallAttainment || 0)); }
+      function applyKraFilters(agents) {
+        let out = agents;
+        if (state.kraSearch) out = out.filter((a) => a.agent.toLowerCase().includes(state.kraSearch.toLowerCase()));
+        if (state.kraStatusFilterValue) out = out.filter((a) => a.status === state.kraStatusFilterValue);
+        return out;
+      }
+      function renderKraAgentPicker() {
+        const nonLead = state.agentProfiles.filter((p) => !isLeadAgentName(p.name));
+        el("kraAgentPicker").innerHTML = ['<option value="">Select agent</option>'].concat(nonLead.map((p) => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`)).join("");
+        el("kraAgentPicker").value = state.kraAgentName;
+      }
+      function openKraPage() {
+        if (!requireTeam()) return;
+        el("kraMonthPicker").value = el("monthPicker").value;
+        showSection("kraPage");
+        renderKraAgentPicker();
+        renderKraEntryTasks();
+        loadKraEntry();
+        refreshKraPage();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      function refreshKraPage() {
+        if (!state.selectedTeam) return;
+        if (state.localPreview) { const d = buildKraDashboard(state.selectedTeam); d.month = el("kraMonthPicker").value; renderKraReportPage(d); return; }
+        el("kraRefreshButton").disabled = true; el("kraRefreshButton").textContent = "Loading...";
+        el("kraPageRows").innerHTML = `<div class="loading">Loading KRA details...</div>`;
+        google.script.run
+          .withSuccessHandler((d) => { renderKraReportPage(d); el("kraRefreshButton").disabled = false; el("kraRefreshButton").textContent = "Refresh KRA"; })
+          .withFailureHandler((e) => { el("kraPageRows").innerHTML = `<div class="loading">${escapeHtml(e.message || "Could not refresh KRA.")}</div>`; el("kraRefreshButton").disabled = false; el("kraRefreshButton").textContent = "Refresh KRA"; })
+          .getKraDashboard({ month: el("kraMonthPicker").value, team: state.selectedTeam });
+      }
+      function renderKraReportPage(dashboard) {
+        const data = dashboard || emptyKraDashboard();
+        state.currentKraDashboard = data;
+        const reportAgents = getKraReportAgents(data.agents || []);
+        const scoped = state.kraAgentMode === "agent" && state.kraAgentName ? reportAgents.filter((a) => a.agent === state.kraAgentName) : reportAgents;
+        const agents = applyKraFilters(scoped);
+        const active = agents.filter((a) => Number(a.totalVolume || 0) > 0).length;
+        const totalProd = agents.reduce((s, a) => s + Number(a.totalProduction || 0), 0);
+        const avgAtt = active ? agents.reduce((s, a) => s + (Number(a.totalVolume || 0) > 0 ? Number(a.overallAttainment || 0) : 0), 0) / active : 0;
+        const avgRating = active ? agents.reduce((s, a) => s + (Number(a.totalVolume || 0) > 0 ? Number(a.actualRating || 0) : 0), 0) / active : 0;
+        const targetMet = agents.filter((a) => Number(a.totalVolume || 0) > 0 && Number(a.overallAttainment || 0) >= 1).length;
+        const monthLabel = formatMonthLabel(data.month || el("kraMonthPicker").value);
+        const selLabel = state.kraAgentMode === "agent" && state.kraAgentName ? state.kraAgentName : "All Agents";
+        el("kraPageTeamName").textContent = data.team || state.selectedTeam;
+        el("kraPageMonthLabel").textContent = monthLabel;
+        el("kraReportTitle").textContent = `${selLabel} KRA`;
+        el("kraReportSubtitle").textContent = `${data.team || state.selectedTeam} · Production 60% · Quality 30% · Shrinkage 10%`;
+        el("kraReportTargetMet").textContent = `${targetMet}/${active} Target Met`;
+        el("kraPageProduction").textContent = formatNumber(totalProd, 1);
+        el("kraPageAttainment").textContent = formatPercent(avgAtt);
+        el("kraPageRating").textContent = formatNumber(avgRating, 1);
+        el("kraPageActiveAgents").textContent = formatNumber(active, 0);
+        el("kraPageWorkingDays").textContent = formatNumber(data.workingDays, 0);
+        el("kraPageTarget").textContent = formatNumber(data.target, 0);
+        el("kraAllButton").classList.toggle("active", state.kraAgentMode === "all");
+        el("kraAgentButton").classList.toggle("active", state.kraAgentMode === "agent");
+        el("kraAllButton").disabled = !canUseAllView();
+        renderKraSplitRows(agents, active);
+        renderKraPageRows(agents);
+        updateKraEmailRecipient();
+        updateKraEmailTemplate(monthLabel);
+      }
+      function renderKraSplitRows(agents, active) {
+        const avgs = ["productionContribution", "qualityContribution", "shrinkageContribution", "overallAttainment"].map((k) => active ? agents.reduce((s, a) => s + (Number(a.totalVolume || 0) > 0 ? Number(a[k] || 0) : 0), 0) / active : 0);
+        const rows = [["Production Score", avgs[0], 0.6], ["Quality Score", avgs[1], 0.3], ["Shrinkage Score", avgs[2], 0.1], ["Overall Attainment", avgs[3], 1]];
+        el("kraSplitRows").innerHTML = rows.map(([label, value, max]) => { const w = Math.min(100, Math.max(0, Math.round((Number(value) / max) * 100))); return `<div class="kra-split-row"><div><span>${label}</span><strong>${formatPercent(value)}</strong></div><div class="kra-meter"><span style="width:${w}%"></span></div></div>`; }).join("");
+      }
+      function renderKraPageRows(agents) {
+        if (!agents.length) { el("kraPageRows").innerHTML = `<div class="loading">No KRA data matches this selection.</div>`; return; }
+        el("kraPageRows").innerHTML = `<table><thead><tr><th>#</th><th>Agent</th><th class="number">Volume</th><th class="number">Production</th><th class="number">Target</th><th class="number">Audits</th><th class="number">Quality</th><th class="number">Planned</th><th class="number">Unplanned</th><th class="number">Prod 60%</th><th class="number">Quality 30%</th><th class="number">Shrinkage 10%</th><th class="number">Attainment</th><th class="number">Rating</th><th>Status</th></tr></thead><tbody>${agents.map((a, i) => `<tr><td>${i + 1}</td><td class="kra-agent-name"><strong>${escapeHtml(a.agent)}</strong><span>${escapeHtml(getAgentProcess(a.agent))}</span></td><td class="number">${formatNumber(a.totalVolume, 0)}</td><td class="number">${formatNumber(a.totalProduction, 1)}</td><td class="number">${formatNumber(a.target, 0)}</td><td class="number">${formatNumber(a.auditCount, 0)}</td><td class="number">${formatPercent(a.qualityScore)}</td><td class="number">${formatNumber(a.plannedShrinkage, 1)}</td><td class="number">${formatNumber(a.unplannedShrinkage, 1)}</td><td class="number">${formatPercent(a.productionContribution)}</td><td class="number">${formatPercent(a.qualityContribution)}</td><td class="number">${formatPercent(a.shrinkageContribution)}</td><td class="number">${formatPercent(a.overallAttainment)}</td><td class="number">${formatNumber(a.actualRating, 1)}</td><td><span class="status-chip ${statusClass(a.status)}">${escapeHtml(a.status || "No data")}</span></td></tr>`).join("")}</tbody></table>`;
+      }
+      function setKraAgentMode(mode) {
+        state.kraAgentMode = mode;
+        if (mode === "all") { state.kraAgentName = ""; el("kraAgentPicker").value = ""; el("kraEmailTo").value = ""; }
+        else if (!state.kraAgentName) { const fb = state.agentProfiles.find((p) => !isLeadAgentName(p.name)); state.kraAgentName = fb ? fb.name : ""; el("kraAgentPicker").value = state.kraAgentName; }
+        renderKraReportPage(state.currentKraDashboard);
+        loadKraEntry();
+      }
+      function renderKraEntryTasks() {
+        if (!state.tasks.length) { el("kraEntryRows").innerHTML = `<div class="loading">No KRA tasks configured.</div>`; return; }
+        el("kraEntryRows").innerHTML = `<div class="entry-grid"><div class="entry-grid-head"><div>Task</div><div>Task Name</div><div>AHT</div><div>Count</div><div>Comment</div></div>${state.tasks.map((t, i) => `<div class="task-row"><div class="task-id">Task ${i + 1}</div><div class="task-name">${escapeHtml(t.name)}</div><div class="aht">${Number(t.aht).toFixed(0)} min</div><div class="task-count"><input autocomplete="off" inputmode="numeric" type="text" value="" data-kra-task-id="${escapeHtml(t.id)}"></div><div class="task-comment"><textarea rows="1" data-kra-task-comment="${escapeHtml(t.id)}" placeholder="Optional"></textarea></div></div>`).join("")}</div>`;
+        el("kraEntryRows").querySelectorAll("input[data-kra-task-id]").forEach((i) => i.addEventListener("input", () => { i.value = i.value.replace(/\D/g, ""); renderKraEntryPreview(); }));
+        renderKraEntryPreview();
+      }
+      function getKraEntryCounts() { const c = {}; el("kraEntryRows").querySelectorAll("input[data-kra-task-id]").forEach((i) => { c[i.dataset.kraTaskId] = Number(i.value) || 0; }); return c; }
+      function getKraEntryComments() { const c = {}; el("kraEntryRows").querySelectorAll("textarea[data-kra-task-comment]").forEach((t) => { c[t.dataset.kraTaskComment] = t.value.trim(); }); return c; }
+      function getKraEntryMetrics() {
+        const q = Number(el("kraQualityScore").value);
+        return { workingDays: Number(el("kraWorkingDays").value) || 0, auditCount: Number(el("kraAuditCount").value) || 0, qualityScore: Number.isFinite(q) && el("kraQualityScore").value !== "" ? q / 100 : 1, internalFatalErrors: Number(el("kraInternalFatal").value) || 0, internalNonFatalErrors: Number(el("kraInternalNonFatal").value) || 0, coachingFatalErrors: Number(el("kraCoachingFatal").value) || 0, coachingNonFatalErrors: Number(el("kraCoachingNonFatal").value) || 0, plannedShrinkage: Number(el("kraPlannedShrinkage").value) || 0, unplannedShrinkage: Number(el("kraUnplannedShrinkage").value) || 0 };
+      }
+      function calcKraPreview() {
+        const counts = getKraEntryCounts(); const m = getKraEntryMetrics();
+        const totalVolume = state.tasks.reduce((s, t) => s + (Number(counts[t.id]) || 0), 0);
+        const totalProduction = state.tasks.reduce((s, t) => s + (Number(counts[t.id]) || 0) * getKraWeight(t), 0);
+        const target = Math.max(0, (Number(m.workingDays) || 0) - 2) * KRA_TARGET_PER_DAY;
+        const productionContribution = target > 0 ? (totalProduction / target) * 0.6 : 0;
+        const hasFatal = m.internalFatalErrors > 0 || m.coachingFatalErrors > 0;
+        const qualityContribution = hasFatal ? 0 : m.qualityScore >= 0.99 ? 0.3 : m.qualityScore > 0.97 ? 0.24 : m.qualityScore > 0.9499 ? 0.18 : m.qualityScore > 0.92 ? 0.12 : 0;
+        const shrinkageContribution = productionContribution >= 0.6 ? 0.1 : m.unplannedShrinkage >= 1 ? 0 : m.plannedShrinkage <= 2 ? 0.1 : 0;
+        const overallAttainment = productionContribution + qualityContribution + shrinkageContribution;
+        const rawRating = overallAttainment < 0.8 ? 1 : overallAttainment >= 1.15 ? 5 : 2 + (overallAttainment - 0.8) * (3 / 0.4);
+        const actualRating = Math.max(1, Math.min(5, rawRating));
+        const status = totalVolume === 0 ? "No data" : overallAttainment >= 1 ? "On target" : overallAttainment >= 0.8 ? "Watch" : "Below target";
+        return { ...m, totalVolume, totalProduction, target, productionContribution, qualityContribution, shrinkageContribution, overallAttainment, actualRating, status };
+      }
+      function renderKraEntryPreview() {
+        if (el("kraEntryPanel").hidden) return;
+        const p = calcKraPreview();
+        el("kraEntryPreview").innerHTML = `<div class="kra-preview-item"><span>Total Volume</span><strong>${formatNumber(p.totalVolume, 0)}</strong></div><div class="kra-preview-item"><span>Production</span><strong>${formatNumber(p.totalProduction, 1)}</strong></div><div class="kra-preview-item"><span>Target</span><strong>${formatNumber(p.target, 0)}</strong></div><div class="kra-preview-item"><span>Prod 60%</span><strong>${formatPercent(p.productionContribution)}</strong></div><div class="kra-preview-item"><span>Quality 30%</span><strong>${formatPercent(p.qualityContribution)}</strong></div><div class="kra-preview-item"><span>Shrinkage 10%</span><strong>${formatPercent(p.shrinkageContribution)}</strong></div><div class="kra-preview-item"><span>Rating</span><strong>${formatNumber(p.actualRating, 1)}</strong></div><div class="kra-preview-item"><span>Attainment</span><strong>${formatPercent(p.overallAttainment)}</strong></div><div class="kra-preview-item"><span>Status</span><strong>${escapeHtml(p.status)}</strong></div>`;
+      }
+      function fillKraEntryFields(entry) {
+        const counts = entry && entry.counts ? entry.counts : {};
+        const comments = entry && entry.comments ? entry.comments : {};
+        const metrics = entry && entry.metrics ? entry.metrics : {};
+        el("kraEntryRows").querySelectorAll("input[data-kra-task-id]").forEach((i) => { const v = Number(counts[i.dataset.kraTaskId] || 0); i.value = v ? String(v) : ""; });
+        el("kraEntryRows").querySelectorAll("textarea[data-kra-task-comment]").forEach((t) => { t.value = comments[t.dataset.kraTaskComment] || ""; });
+        fillKraMetricFields(metrics);
+        renderKraEntryPreview();
+      }
+      function fillKraMetricFields(m) {
+        el("kraWorkingDays").value = m.workingDays || "";
+        el("kraAuditCount").value = m.auditCount || "";
+        el("kraQualityScore").value = m.qualityScore == null ? "" : Number((Number(m.qualityScore) * 100).toFixed(2));
+        el("kraInternalFatal").value = m.internalFatalErrors || "";
+        el("kraInternalNonFatal").value = m.internalNonFatalErrors || "";
+        el("kraCoachingFatal").value = m.coachingFatalErrors || "";
+        el("kraCoachingNonFatal").value = m.coachingNonFatalErrors || "";
+        el("kraPlannedShrinkage").value = m.plannedShrinkage || "";
+        el("kraUnplannedShrinkage").value = m.unplannedShrinkage || "";
+      }
+      function clearKraEntryFields() {
+        el("kraEntryRows").querySelectorAll("input[data-kra-task-id]").forEach((i) => { i.value = ""; });
+        el("kraEntryRows").querySelectorAll("textarea[data-kra-task-comment]").forEach((t) => { t.value = ""; });
+        fillKraMetricFields({});
+        renderKraEntryPreview();
+      }
+      function loadKraEntry() {
+        if (!canUseAllView()) return;
+        if (!state.kraAgentName) { clearKraEntryFields(); el("kraEntryMessage").textContent = "Select an agent to add monthly KRA data."; el("kraEntryMessage").className = "message"; return; }
+        if (state.localPreview) {
+          const ex = (state.currentKraDashboard.agents || []).find((a) => a.agent === state.kraAgentName) || {};
+          fillKraEntryFields({ counts: {}, comments: {}, metrics: { workingDays: ex.workingDays || 22, auditCount: ex.auditCount || 0, qualityScore: ex.qualityScore == null ? 1 : ex.qualityScore, plannedShrinkage: ex.plannedShrinkage || 0, unplannedShrinkage: ex.unplannedShrinkage || 0 } });
+          el("kraEntryMessage").textContent = ""; return;
+        }
+        el("kraEntryMessage").textContent = "Loading KRA entry..."; el("kraEntryMessage").className = "message";
+        google.script.run
+          .withSuccessHandler((entry) => { fillKraEntryFields(entry); el("kraEntryMessage").textContent = ""; })
+          .withFailureHandler((e) => { clearKraEntryFields(); el("kraEntryMessage").textContent = e.message || "Could not load KRA entry."; el("kraEntryMessage").className = "message bad"; })
+          .getKraEntry({ month: el("kraMonthPicker").value, team: state.selectedTeam, agent: state.kraAgentName });
+      }
+      function applyLocalKra() {
+        const summary = { agent: state.kraAgentName, ...calcKraPreview() };
+        const dash = state.currentKraDashboard;
+        const idx = (dash.agents || []).findIndex((a) => a.agent === state.kraAgentName);
+        if (idx >= 0) dash.agents[idx] = { ...dash.agents[idx], ...summary }; else dash.agents.push(summary);
+        renderKraReportPage(dash);
+      }
+      function saveKraEntry() {
+        if (!canUseAllView()) return;
+        if (!state.kraAgentName) { el("kraEntryMessage").textContent = "Select an agent before saving KRA data."; el("kraEntryMessage").className = "message bad"; return; }
+        if (state.localPreview) { applyLocalKra(); el("kraEntryMessage").textContent = "Preview updated. Deploy to persist into Sheets."; el("kraEntryMessage").className = "message good"; showCenterToast("KRA saved (preview).", "good"); return; }
+        el("kraSaveButton").disabled = true; el("kraSaveButton").textContent = "Saving...";
+        google.script.run
+          .withSuccessHandler((r) => { el("kraEntryMessage").textContent = r.message || "KRA monthly data saved."; el("kraEntryMessage").className = "message good"; el("kraSaveButton").disabled = false; el("kraSaveButton").textContent = "Save KRA Data"; refreshKraPage(); showCenterToast("KRA data saved.", "good"); })
+          .withFailureHandler((e) => { el("kraEntryMessage").textContent = e.message || "Could not save KRA data."; el("kraEntryMessage").className = "message bad"; el("kraSaveButton").disabled = false; el("kraSaveButton").textContent = "Save KRA Data"; showCenterToast(e.message || "Could not save.", "bad"); })
+          .saveKraEntry({ month: el("kraMonthPicker").value, team: state.selectedTeam, agent: state.kraAgentName, counts: getKraEntryCounts(), comments: getKraEntryComments(), metrics: getKraEntryMetrics(), submittedBy: el("submittedBy").value });
+      }
+      function updateKraEmailRecipient() {
+        if (state.kraAgentMode !== "agent" || !state.kraAgentName) { el("kraEmailTo").value = ""; return; }
+        const p = state.agentProfiles.find((x) => x.name === state.kraAgentName);
+        el("kraEmailTo").value = p && p.email ? p.email : "";
+      }
+      function canEditKraEmailTemplate() { return Boolean(state.access && state.access.isAdmin); }
+      function updateKraEmailTemplate(monthLabel) {
+        const canEdit = canEditKraEmailTemplate();
+        el("kraEmailSubject").disabled = !canEdit;
+        el("kraEmailBody").disabled = !canEdit;
+        el("kraEmailTemplateNote").textContent = canEdit ? "Only admin can edit this before sending." : "This template is locked. Only admin can edit it.";
+        if (state.kraAgentMode !== "agent" || !state.kraAgentName) { el("kraEmailSubject").value = ""; el("kraEmailBody").value = "Select Agent Wise KRA and choose an agent to prepare the email template."; return; }
+        el("kraEmailSubject").value = `Monthly Performance Report - ${monthLabel} (${state.kraAgentName})`;
+        el("kraEmailBody").value = `Hi ${state.kraAgentName},\n\nPlease find below your Monthly Performance for ${monthLabel}.`;
+      }
+      function sendKraEmail() {
+        updateKraEmailRecipient();
+        const email = el("kraEmailTo").value.trim();
+        el("kraEmailMessage").textContent = ""; el("kraEmailMessage").className = "message";
+        if (!email) { el("kraEmailMessage").textContent = "Please enter an email address."; el("kraEmailMessage").className = "message bad"; return; }
+        if (state.kraAgentMode !== "agent" || !state.kraAgentName) { el("kraEmailMessage").textContent = "Select Agent Wise KRA and choose an agent first."; el("kraEmailMessage").className = "message bad"; return; }
+        if (state.localPreview) { el("kraEmailMessage").textContent = "Email is available after deploying in Google Apps Script."; return; }
+        el("kraEmailButton").disabled = true; el("kraEmailButton").textContent = "Sending...";
+        google.script.run
+          .withSuccessHandler((r) => { const m = r.message || "Email sent successfully."; el("kraEmailMessage").textContent = m; el("kraEmailMessage").className = "message good"; el("kraEmailButton").disabled = false; el("kraEmailButton").textContent = "Email KRA"; showCenterToast(m, "good"); })
+          .withFailureHandler((e) => { el("kraEmailMessage").textContent = e.message || "Could not send KRA email."; el("kraEmailMessage").className = "message bad"; el("kraEmailButton").disabled = false; el("kraEmailButton").textContent = "Email KRA"; showCenterToast(e.message || "Could not send.", "bad"); })
+          .sendKraEmail({ month: el("kraMonthPicker").value, team: state.selectedTeam, mode: state.kraAgentMode, agent: state.kraAgentName, email, subject: el("kraEmailSubject").value, body: el("kraEmailBody").value, counts: getKraEntryCounts(), comments: getKraEntryComments(), metrics: getKraEntryMetrics() });
+      }
+
+      // ---------- Bulk upload ----------
+      function openBulkPage() {
+        if (!requireTeam()) return;
+        if (el("bulkButton").hidden) { showMessage("Bulk upload is for leads/admin only.", "bad"); return; }
+        showSection("bulkPage");
+        el("bulkMonthPicker").value = el("monthPicker").value;
+        el("bulkMessage").textContent = ""; el("bulkMessage").className = "message";
+      }
+      function downloadBulkTemplate() {
+        if (!state.selectedTeam) return;
+        const month = el("bulkMonthPicker").value || el("monthPicker").value;
+        const agents = state.agentProfiles.filter((p) => !isLeadAgentName(p.name)).map((p) => p.name);
+        const headers = ["Work Date", "Agent", ...state.tasks.flatMap((t) => [t.name, `${t.name} Comment`]), "General Notes", "Submitted By"];
+        const rows = [headers];
+        getWeekdayDatesForMonth(month).forEach((date) => { agents.forEach((agent) => { rows.push([date, agent, ...state.tasks.flatMap(() => ["", ""]), "", ""]); }); });
+        downloadCsv(`${state.selectedTeam.replace(/[^a-z0-9]+/gi, "-")}-${month}-bulk-upload.csv`, rows);
+        showCenterToast("Template downloaded.", "good");
+      }
+      function getWeekdayDatesForMonth(month) {
+        const [y, m] = String(month || "").split("-").map(Number);
+        if (!y || !m) return [];
+        const dates = []; const cur = new Date(y, m - 1, 1);
+        while (cur.getMonth() === m - 1) { const day = cur.getDay(); if (day !== 0 && day !== 6) dates.push(formatDateForInput(cur)); cur.setDate(cur.getDate() + 1); }
+        return dates;
+      }
+      function formatDateForInput(date) {
+        const v = date instanceof Date ? date : new Date(date);
+        if (Number.isNaN(v.getTime())) return "";
+        return [v.getFullYear(), String(v.getMonth() + 1).padStart(2, "0"), String(v.getDate()).padStart(2, "0")].join("-");
+      }
+      function readTextFile(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result || "")); r.onerror = () => rej(new Error("Could not read the selected file.")); r.readAsText(file); }); }
+      function readFileAsBase64(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result || "").split(",").pop()); r.onerror = () => rej(new Error("Could not read the selected Excel file.")); r.readAsDataURL(file); }); }
+      function chooseDelimiter(text) { const first = String(text).split(/\r?\n/)[0] || ""; return (first.match(/\t/g) || []).length > (first.match(/,/g) || []).length ? "\t" : ","; }
+      function parseDelimitedRows(text, delimiter) {
+        const rows = []; let row = []; let cell = ""; let inQuotes = false;
+        const src = String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+        for (let i = 0; i < src.length; i += 1) {
+          const ch = src[i], next = src[i + 1];
+          if (ch === '"') { if (inQuotes && next === '"') { cell += '"'; i += 1; } else { inQuotes = !inQuotes; } }
+          else if (ch === delimiter && !inQuotes) { row.push(cell); cell = ""; }
+          else if (ch === "\n" && !inQuotes) { row.push(cell); rows.push(row); row = []; cell = ""; }
+          else { cell += ch; }
+        }
+        row.push(cell); rows.push(row); return rows;
+      }
+      function normalizeHeader(v) { return String(v || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
+      function findHeaderIndex(headers, candidates) { return headers.findIndex((h) => candidates.includes(h)); }
+      function parseUploadDate(value) {
+        const text = String(value || "").trim();
+        if (!text) return "";
+        const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text);
+        if (iso) return `${iso[1]}-${String(iso[2]).padStart(2, "0")}-${String(iso[3]).padStart(2, "0")}`;
+        const slash = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/.exec(text);
+        if (slash) { let f = Number(slash[1]), s = Number(slash[2]), y = Number(slash[3]); if (y < 100) y += 2000; const day = f > 12 ? f : s > 12 ? s : f; const mon = f > 12 ? s : s > 12 ? f : s; return `${y}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`; }
+        if (/^\d+(\.\d+)?$/.test(text)) { const d = new Date(Math.round((Number(text) - 25569) * 86400 * 1000)); if (!Number.isNaN(d.getTime())) return formatDateForInput(d); }
+        const parsed = new Date(text); return Number.isNaN(parsed.getTime()) ? "" : formatDateForInput(parsed);
+      }
+      function parseBulkEntries(text) {
+        const delimiter = chooseDelimiter(text);
+        const rows = parseDelimitedRows(text, delimiter).filter((r) => r.some((c) => String(c).trim()));
+        if (rows.length < 2) throw new Error("The upload needs a header row and at least one data row.");
+        const headers = rows[0].map(normalizeHeader);
+        const dateIndex = findHeaderIndex(headers, ["workdate", "date"]);
+        const agentIndex = findHeaderIndex(headers, ["agent", "agentname", "employeename"]);
+        if (dateIndex < 0 || agentIndex < 0) throw new Error("Headers must include Work Date and Agent.");
+        const notesIndex = findHeaderIndex(headers, ["generalnotes", "notes"]);
+        const submittedByIndex = findHeaderIndex(headers, ["submittedby"]);
+        const taskColumns = state.tasks.map((t) => ({ task: t, countIndex: findHeaderIndex(headers, [normalizeHeader(t.name), normalizeHeader(`${t.name} Count`), normalizeHeader(t.id), normalizeHeader(`${t.id} Count`)]), commentIndex: findHeaderIndex(headers, [normalizeHeader(`${t.name} Comment`), normalizeHeader(`${t.id} Comment`)]) }));
+        const parsed = [];
+        rows.slice(1).forEach((row, ri) => {
+          const date = parseUploadDate(row[dateIndex]);
+          const agent = String(row[agentIndex] || "").trim();
+          if (!date && !agent) return;
+          if (!date || !agent) throw new Error(`Row ${ri + 2}: Work Date and Agent are required.`);
+          const counts = {}; const comments = {}; let hasData = false;
+          taskColumns.forEach(({ task, countIndex, commentIndex }) => {
+            const rawCount = countIndex >= 0 ? String(row[countIndex] || "").trim() : "";
+            const rawComment = commentIndex >= 0 ? String(row[commentIndex] || "").trim() : "";
+            const count = rawCount === "" ? "" : Number(rawCount.replace(/,/g, ""));
+            if (count !== "" && (!Number.isFinite(count) || count < 0)) throw new Error(`Row ${ri + 2}: ${task.name} count must be zero or positive.`);
+            counts[task.id] = count === "" ? "" : count; comments[task.id] = rawComment;
+            if (count || rawComment) hasData = true;
+          });
+          const notes = notesIndex >= 0 ? String(row[notesIndex] || "").trim() : "";
+          if (!hasData && !notes) return;
+          parsed.push({ date, agent, counts, comments, notes, submittedBy: submittedByIndex >= 0 ? String(row[submittedByIndex] || "").trim() : "" });
+        });
+        if (!parsed.length) throw new Error("No rows with task counts or notes were found.");
+        return parsed;
+      }
+      async function uploadBulkMonthlyEntries() {
+        el("bulkMessage").textContent = ""; el("bulkMessage").className = "message";
+        if (!state.selectedTeam) { el("bulkMessage").textContent = "Please select a team first."; el("bulkMessage").className = "message bad"; return; }
+        let text = el("bulkPaste").value.trim(); let xlsxFile = null;
+        if (el("bulkFile").files && el("bulkFile").files[0]) {
+          const file = el("bulkFile").files[0];
+          if (/\.xlsx$/i.test(file.name)) xlsxFile = { name: file.name, data: await readFileAsBase64(file) };
+          else text = await readTextFile(file);
+        }
+        if (!text.trim() && !xlsxFile) { el("bulkMessage").textContent = "Please choose an Excel/CSV file or paste rows."; el("bulkMessage").className = "message bad"; return; }
+        let entries = [];
+        try { if (!xlsxFile) entries = parseBulkEntries(text); }
+        catch (err) { el("bulkMessage").textContent = err.message || "Could not read uploaded rows."; el("bulkMessage").className = "message bad"; return; }
+        const payload = { team: state.selectedTeam, month: el("bulkMonthPicker").value, updateKra: el("bulkUpdateKra").checked, entries, xlsxFile };
+        if (state.localPreview) { el("bulkMessage").textContent = xlsxFile ? "Excel file ready for upload after deployment." : `${entries.length} rows ready for upload.`; el("bulkMessage").className = "message good"; showCenterToast("Bulk upload preview ready.", "good"); return; }
+        el("bulkUploadButton").disabled = true; el("bulkUploadButton").textContent = "Uploading...";
+        google.script.run
+          .withSuccessHandler((r) => { const m = r.message || `${r.uploadedRows || entries.length} rows uploaded.`; el("bulkMessage").textContent = m; el("bulkMessage").className = "message good"; el("bulkUploadButton").disabled = false; el("bulkUploadButton").textContent = "Upload Monthly Numbers"; el("bulkFile").value = ""; el("bulkPaste").value = ""; if (r.dashboard) { el("monthPicker").value = r.dashboard.month || payload.month; renderDashboard(r.dashboard); } showCenterToast(m, "good"); })
+          .withFailureHandler((e) => { el("bulkMessage").textContent = e.message || "Could not upload monthly numbers."; el("bulkMessage").className = "message bad"; el("bulkUploadButton").disabled = false; el("bulkUploadButton").textContent = "Upload Monthly Numbers"; showCenterToast(e.message || "Could not upload.", "bad"); })
+          .saveBulkMonthlyEntries(payload);
+      }
+
+      // ---------- Helpers ----------
+      function getStatus(totalVolume, utilization) {
+        if (totalVolume === 0) return "No volume";
+        if (utilization >= state.targetUtilization) return "On target";
+        if (utilization >= state.targetUtilization * 0.75) return "Watch";
+        return "Below target";
+      }
+      function statusClass(status) { return status === "On target" ? "status-on" : status === "Watch" ? "status-watch" : status === "Below target" ? "status-below" : ""; }
+      function showMessage(text, type) { el("message").textContent = text; el("message").className = type ? `message ${type}` : "message"; }
+      function showCenterToast(text, type) {
+        window.clearTimeout(state.toastTimer);
+        el("centerToast").textContent = text;
+        el("centerToast").className = `center-toast ${type === "bad" ? "bad" : ""}`.trim();
+        requestAnimationFrame(() => el("centerToast").classList.add("show"));
+        state.toastTimer = window.setTimeout(() => el("centerToast").classList.remove("show"), 2600);
+      }
+      function formatNumber(value, digits) { return Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits }); }
+      function formatPercent(value) { return `${Math.round(Number(value || 0) * 100)}%`; }
+      function formatMonthLabel(value) { if (!value) return "Selected month"; const p = String(value).split("-"); if (p.length !== 2) return value; return new Date(Number(p[0]), Number(p[1]) - 1, 1).toLocaleString(undefined, { month: "long", year: "numeric" }); }
+      function escapeHtml(value) { return String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+
+      // ---------- Events ----------
+      function bindEvents() {
+        el("entryForm").addEventListener("submit", submitEntry);
+        el("clearButton").addEventListener("click", clearEntryFields);
+        el("refreshButton").addEventListener("click", refreshDashboard);
+        el("monthPicker").addEventListener("change", () => { el("kraMonthPicker").value = el("monthPicker").value; el("bulkMonthPicker").value = el("monthPicker").value; refreshDashboard(); });
+        el("dailyDatePicker").addEventListener("change", refreshDashboard);
+        el("todayButton").addEventListener("click", () => { el("dailyDatePicker").value = todayISO(); refreshDashboard(); });
+        el("myViewButton").addEventListener("click", () => setDashboardView("mine"));
+        el("allViewButton").addEventListener("click", () => setDashboardView("all"));
+        el("agentSearch").addEventListener("input", (e) => { state.agentSearch = e.target.value; renderDashboard(state.currentDashboard); });
+        el("statusFilter").addEventListener("change", (e) => { state.statusFilterValue = e.target.value; renderDashboard(state.currentDashboard); });
+        el("exportUtilButton").addEventListener("click", exportUtilCsv);
+        el("agent").addEventListener("change", () => {
+          renderAgentProfile();
+          if (el("agent").value && !isLeadAgentName(el("agent").value)) { state.kraAgentName = el("agent").value; renderKraAgentPicker(); }
+          if (!el("agent").value || !isLeadAgentName(el("agent").value)) state.dashboardView = "mine";
+          renderDashboard(state.currentDashboard);
+          updateDashboardViewButtons();
+          if (el("agent").value) refreshDashboard();
+        });
+        el("submittedBy").addEventListener("input", updateDashboardViewButtons);
+
+        el("navDashboard").addEventListener("click", () => { if (state.selectedTeam) showSection("app"); else { el("teamChooser").hidden = false; document.querySelectorAll(".header-meta .pill").forEach((p) => p.classList.remove("active")); el("navDashboard").classList.add("active"); } });
+        el("bulkButton").addEventListener("click", openBulkPage);
+        el("bulkBackButton").addEventListener("click", () => showSection("app"));
+        el("bulkTemplateButton").addEventListener("click", downloadBulkTemplate);
+        el("bulkUploadButton").addEventListener("click", uploadBulkMonthlyEntries);
+        el("bulkMonthPicker").addEventListener("change", () => { el("monthPicker").value = el("bulkMonthPicker").value; el("kraMonthPicker").value = el("bulkMonthPicker").value; });
+
+        el("attendanceButton").addEventListener("click", openAttendance);
+        el("attRefreshButton").addEventListener("click", refreshAttendance);
+        el("attMonthPicker").addEventListener("change", refreshAttendance);
+        el("attBackButton").addEventListener("click", () => showSection("app"));
+
+        el("compareButton").addEventListener("click", openCompare);
+        el("compareBackButton").addEventListener("click", () => showSection("app"));
+
+        el("kraButton").addEventListener("click", openKraPage);
+        el("kraBackButton").addEventListener("click", () => showSection("app"));
+        el("kraPrintButton").addEventListener("click", () => window.print());
+        el("kraExportButton").addEventListener("click", exportKraCsv);
+        el("kraRefreshButton").addEventListener("click", refreshKraPage);
+        el("kraEmailButton").addEventListener("click", sendKraEmail);
+        el("kraSaveButton").addEventListener("click", saveKraEntry);
+        el("kraMonthPicker").addEventListener("change", () => { el("monthPicker").value = el("kraMonthPicker").value; loadKraEntry(); refreshKraPage(); });
+        el("kraSearch").addEventListener("input", (e) => { state.kraSearch = e.target.value; renderKraReportPage(state.currentKraDashboard); });
+        el("kraStatusFilter").addEventListener("change", (e) => { state.kraStatusFilterValue = e.target.value; renderKraReportPage(state.currentKraDashboard); });
+        el("kraAllButton").addEventListener("click", () => setKraAgentMode("all"));
+        el("kraAgentButton").addEventListener("click", () => setKraAgentMode("agent"));
+        el("kraAgentPicker").addEventListener("change", () => { state.kraAgentName = el("kraAgentPicker").value; state.kraAgentMode = state.kraAgentName ? "agent" : "all"; renderKraReportPage(state.currentKraDashboard); loadKraEntry(); });
+        document.querySelectorAll(".kra-entry-controls input").forEach((i) => i.addEventListener("input", renderKraEntryPreview));
+      }
+
+      init();
+    </script>
+  </body>
+</html>

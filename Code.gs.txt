@@ -1,0 +1,2571 @@
+const CONFIG = {
+  schemaVersion: "2026-05-20-top-kra-audit-scope-v1",
+  spreadsheetIdProperty: "CRM_SPREADSHEET_ID",
+  cacheSeconds: 300,
+  kraCacheSeconds: 90,
+  workdayHours: 8,
+  targetUtilization: 0.85,
+  sheets: {
+    entries: "Daily Entries",
+    kraEntries: "KRA Entries",
+    agents: "Agents",
+    tasks: "Tasks",
+  },
+};
+
+const TEAM_ORDER = [
+  "FDR CBP Team",
+  "FDR Uncleared & ASTNC Team",
+  "JGW Team",
+];
+
+const ADMIN_EMAILS = [
+  "neelkant.sharma@prth.com",
+  "shomik.dasgupta@prth.com",
+  "atish.mukherjee@prth.com",
+];
+
+const KRA_EMAIL_CC_RULES = [
+  {
+    team: "FDR CBP Team",
+    lead: "Shubham Sharma",
+    cc: [
+      "shomik.dasgupta@prth.com",
+      "atish.mukherjee@prth.com",
+      "neelkant.sharma@prth.com",
+      "shubham.sharma@prth.com",
+    ],
+  },
+];
+
+const JGW_AGENTS = [
+  "Sachin Sharma",
+  "Vikram Tanwar",
+  "Ruhani Garg",
+  "Naman Singh Negi",
+  "Rahul Sharma",
+  "Nitin Mehra",
+  "Rahul Kumar Dhiman",
+  "Simran",
+  "Narinder Singh",
+  "Ansh Saxena",
+  "Rohit Chandel",
+  "Amit Rana",
+  "Varun Dogra (Team Lead)",
+];
+
+const AGENT_RENAMES = {
+  "FDR CBP Team||Janmeet Kour": "Janmeet Kaur",
+  "FDR CBP Team||Yasmeen Sayad": "Yasmeen Sayed",
+  "FDR CBP Team||Shardha Soni": "Shradha Soni",
+  "JGW Team||Ruhani Gerg": "Ruhani Garg",
+  "JGW Team||Varun Dogra": "Varun Dogra (Team Lead)",
+  "JGW Team||Varun DOgra (Team Lead)": "Varun Dogra (Team Lead)",
+};
+
+const AGENT_PROFILES = [
+  ["FDR CBP Team", "Tarun Arora", "914", "tarun.t1@prth.com", "Analyst PSE - FDR", "CBP/Webpay", "Shubham Sharma"],
+  ["FDR CBP Team", "Yasmeen Sayed", "1023", "yasmeen.sayed@prth.com", "Analyst PSE - FDR", "CBP/Webpay", "Shubham Sharma"],
+  ["FDR CBP Team", "Janmeet Kaur", "988", "janmeet.kour@prth.com", "Analyst PSE - FDR", "CBP/Webpay", "Shubham Sharma"],
+  ["FDR CBP Team", "Chirag Verma", "976", "chirag.verma@prth.com", "Analyst PSE - FDR", "CBP/Webpay", "Shubham Sharma"],
+  ["FDR CBP Team", "Shobha Jarora", "1020", "shobha.s@prth.com", "Analyst PSE - FDR", "CBP/Webpay", "Shubham Sharma"],
+  ["FDR CBP Team", "Vanshika Bhardwaj", "1007", "vanshika.bhardwaj@prth.com", "Associate Analyst PSE - FDR", "CBP/Webpay", "Shubham Sharma"],
+  ["FDR CBP Team", "Annie John", "901", "annie.john@prth.com", "Analyst PSE - FDR", "CBP/Webpay", "Shubham Sharma"],
+  ["FDR CBP Team", "Keshav Sharma", "986", "keshav.sharma@prth.com", "Analyst PSE - FDR", "CBP/Webpay", "Onkar Sharma"],
+  ["FDR CBP Team", "Pardeep Kumar", "874", "pardeep.p@prth.com", "Analyst PSE - FDR", "CBP/Webpay", "Onkar Sharma"],
+  ["FDR CBP Team", "Damanpreet Kaur", "913", "damanpreet.kaur@prth.com", "Analyst PSE - FDR", "CBP/Webpay", "Onkar Sharma"],
+  ["FDR CBP Team", "Manthan Takmardan", "990", "manthan.m@prth.com", "Analyst PSE - FDR", "CBP/Webpay", "Onkar Sharma"],
+  ["FDR CBP Team", "Satvir Singh", "915", "satvir.singh@prth.com", "Analyst PSE - FDR", "CBP/Webpay", "Onkar Sharma"],
+  ["FDR CBP Team", "Tamanna Farjin", "991", "tamanna.farjin@prth.com", "Analyst PSE - FDR", "CBP/Webpay", "Onkar Sharma"],
+  ["FDR CBP Team", "Kanika Sharma", "1032", "kanika.sharma@prth.com", "Analyst PSE - FDR", "CBP/Webpay", "Onkar Sharma"],
+  ["FDR CBP Team", "Shubham Sharma (Team Lead)", "270", "shubham.sharma@prth.com", "Team Lead PSE - FDR", "Team Lead", ""],
+  ["FDR CBP Team", "Onkar Sharma (Team Lead)", "355", "onkar.sharma@prth.com", "Team Lead PSE - FDR", "Team Lead", ""],
+  ["FDR CBP Team", "Himanshi Thapliyal", "1029", "himanshi.h@prth.com", "Analyst PSE - FDR", "Inbound", ""],
+  ["FDR CBP Team", "Shradha Soni", "1006", "shradha.soni@prth.com", "Analyst PSE - FDR", "Inbound", ""],
+  ["FDR Uncleared & ASTNC Team", "Abhimanyu Gupta", "909", "abhimanyu.gupta@prth.com", "Analyst PSE - FDR", "Uncleared Payment"],
+  ["FDR Uncleared & ASTNC Team", "Abhinandan Thakur", "908", "abhinandan.thakur@prth.com", "Analyst PSE - FDR", "Uncleared Payment"],
+  ["FDR Uncleared & ASTNC Team", "Jessika Gandhi", "1000", "jessika.gandhi@prth.com", "Analyst PSE - FDR", "Uncleared Payment"],
+  ["FDR Uncleared & ASTNC Team", "Rachel Samson", "891", "rachel.samson@prth.com", "Analyst PSE - FDR", "Uncleared Payment"],
+  ["FDR Uncleared & ASTNC Team", "Varshit Nehraik", "892", "varshit.nehraik@prth.com", "Analyst PSE - FDR", "Uncleared Payment"],
+  ["FDR Uncleared & ASTNC Team", "Rashi Gurung", "1005", "rashi.gurung@prth.com", "Analyst PSE - FDR", "ASTNC"],
+  ["FDR Uncleared & ASTNC Team", "Sandeep Rawat", "882", "sandeep.rawat@prth.com", "Analyst PSE - FDR", "ASTNC"],
+  ["FDR Uncleared & ASTNC Team", "Laxman Bisht", "884", "laxman.bisht@prth.com", "Analyst PSE - FDR", "ASTNC"],
+  ["FDR Uncleared & ASTNC Team", "Aarchi Madaan", "1001", "aarchi.a@prth.com", "Analyst PSE - FDR", "STIP Review"],
+  ["FDR Uncleared & ASTNC Team", "Ankit Chauhan", "989", "ankit.chauhan@prth.com", "Analyst PSE - FDR", "STIP Review"],
+  ["FDR Uncleared & ASTNC Team", "Tushar Sharma", "999", "tushar.sharma@prth.com", "Analyst PSE - FDR", "STIP Review"],
+  ["FDR Uncleared & ASTNC Team", "Vikas Chauhan (Team Lead)", "357", "vikas.chauhan@prth.com", "Team Lead PSE - FDR", "Team Lead"],
+  ["JGW Team", "Rohit Chandel", "685", "rohit.chandel@prth.com", "Sr. Analyst PSE - JGW", "JGW : Exceptions"],
+  ["JGW Team", "Sachin Sharma", "875", "sachin.s@prth.com", "Analyst PSE - JGW", "JGW : CBP"],
+  ["JGW Team", "Ansh Saxena", "1043", "ansh.saxena@prth.com", "Analyst PSE - JGW", "JGW : CBP"],
+  ["JGW Team", "Naman Singh Negi", "1112", "naman.negi@prth.com", "Analyst PSE - JGW", "JGW : CBP"],
+  ["JGW Team", "Amit Rana", "902", "amit.rana@prth.com", "Analyst PSE - JGW", "JGW : CBP"],
+  ["JGW Team", "Simran", "1117", "simran.s@prth.com", "Analyst PSE - JGW", "JGW : CBP"],
+  ["JGW Team", "Rahul Sharma", "670", "rahul.sharma3@prth.com", "Analyst PSE - JGW", "JGW : Uncleared Payments"],
+  ["JGW Team", "Ruhani Garg", "1048", "ruhani.garg@prth.com", "Associate Analyst PSE - JGW", "JGW : Uncleared Payments"],
+  ["JGW Team", "Narinder Singh", "1062", "narinder.singh1@prth.com", "Analyst PSE - JGW", "JGW : Uncleared Payments"],
+  ["JGW Team", "Rahul Kumar Dhiman", "1065", "rahul.dhiman1@prth.com", "Analyst PSE - JGW", "JGW : Uncleared Payments"],
+  ["JGW Team", "Vikram Tanwar", "1063", "vikram.tanwar@prth.com", "Analyst PSE - JGW", "JGW : Uncleared Payments"],
+  ["JGW Team", "Nitin Mehra", "1074", "nitin.mehra@prth.com", "Associate Analyst PSE - JGW", "JGW : Uncleared Payments"],
+  ["JGW Team", "Varun Dogra (Team Lead)", "334", "varun.dogra@prth.com", "Team Lead PSE - JGW", "Team Lead"],
+];
+
+const JGW_TASKS = [
+  ["Task 1", "Ring Central Talk Time (in mins)", 1],
+  ["Task 2", "JGW Capital One Bulk Payments Sheet Creation", 60],
+  ["Task 3", "JGW Other Creditors Bulk payment sheet Creation", 20],
+  ["Task 4", "JGW Uncleared Worked & Completed", 3],
+  ["Task 5", "JGW CBP Remittance", 3],
+  ["Task 6", "JGW E-mails/Escalations", 4],
+  ["Task 7", "JGW ACH/ICL Exceptions", 3],
+  ["Task 8", "JGW & NSL ACH/ICL Exceptions Calls", 3],
+  ["Task 9", "JGW Master Sheet /Salesforce Update", 1],
+  ["Task 10", "Voice Mails & Long Hold Comments Update in MS/SF", 2],
+  ["Task 11", "Audits Performed for calls", 6],
+  ["Task 12", "Audits Performed for web pays", 3],
+  ["Task 13", "Value Added Tasks", 1],
+];
+
+const TEAM_CONFIGS = {
+  "FDR CBP Team": {
+    agents: [
+      "Chirag Verma",
+      "Janmeet Kaur",
+      "Kanika Sharma",
+      "Shobha Jarora",
+      "Tarun Arora",
+      "Vanshika Bhardwaj",
+      "Annie John",
+      "Yasmeen Sayed",
+      "Damanpreet Kaur",
+      "Tamanna Farjin",
+      "Satvir Singh",
+      "Pardeep Kumar",
+      "Keshav Sharma",
+      "Manthan Takmardan",
+      "Shubham Sharma (Team Lead)",
+      "Onkar Sharma (Team Lead)",
+      "Himanshi Thapliyal",
+      "Shradha Soni",
+    ],
+    tasks: [
+      ["Task 1", "FDR - Check By Phone", 10],
+      ["Task 2", "FDR - Web Pays", 4],
+      ["Task 3", "FDR - Calls Audit", 8],
+      ["Task 4", "FDR- WebPay Audit", 4],
+      ["Task 5", "FDR-CBP Reporting", 5],
+      ["Task 6", "FDR - CBP Downtime", 1],
+      ["Task 7", "FDR - Inbound", 5],
+      ["Task 8", "FDR - Funds Shortage Cases", 8],
+      ["Task 9", "FDR- Update To Resolve", 15],
+      ["Task 10", "Office Hours", 1],
+      ["Task 11", "Other Value added Tasks", 1],
+    ],
+  },
+  "FDR Uncleared & ASTNC Team": {
+    agents: [
+      "Abhimanyu Gupta",
+      "Abhinandan Thakur",
+      "Jessika Gandhi",
+      "Rachel Samson",
+      "Varshit Nehraik",
+      "Rashi Gurung",
+      "Sandeep Rawat",
+      "Laxman Bisht",
+      "Aarchi Madaan",
+      "Ankit Chauhan",
+      "Tushar Sharma",
+      "Vikas Chauhan (Team Lead)",
+    ],
+    tasks: [
+      ["Task 1", "FDR - Check By Phone", 10],
+      ["Task 2", "FDR - Web Pays", 3],
+      ["Task 3", "FDR-CBP Reporting", 5],
+      ["Task 4", "FDR - CBP Downtime", 1],
+      ["Task 5", "FDR - Uncleared Payments", 55],
+      ["Task 6", "FDR - Uncleared Reporting", 5],
+      ["Task 7", "FDR - Uncleared Downtime", 1],
+      ["Task 8", "FDR - ASTNC Cases", 85],
+      ["Task 9", "FDR - ASTNC Reporting", 5],
+      ["Task 10", "FDR - ASTNC Downtime", 1],
+      ["Task 11", "FDR - STIP Cases", 85],
+      ["Task 12", "FDR - STIP Reporting", 5],
+      ["Task 13", "FDR - STIP Downtime", 1],
+      ["Task 14", "FDR - UTR Cases", 15],
+      ["Task 15", "FDR - UTR Reporting", 2],
+      ["Task 16", "FDR - UTR Downtime", 1],
+      ["Task 17", "FDR - SV Cases", 11],
+      ["Task 18", "FDR - SV Reporting", 3],
+      ["Task 19", "FDR - SV Downtime", 1],
+      ["Task 20", "FDR - Funds Shortage Cases", 8],
+      ["Task 21", "FDR-Undelivered Checks", 15],
+      ["Task 22", "FDR - Calls/Case Audit", 6],
+      ["Task 23", "FDR- WebPay/Case Email Audit", 3],
+      ["Task 24", "Office Hours", 1],
+      ["Task 25", "Other Value added Tasks", 1],
+    ],
+  },
+  "JGW Team": {
+    agents: JGW_AGENTS,
+    tasks: JGW_TASKS,
+  },
+};
+
+const MAX_TASK_SLOTS = Math.max(...TEAM_ORDER.map((team) => TEAM_CONFIGS[team].tasks.length));
+
+const KRA_CONFIG = {
+  targetPerDay: 45,
+  qualityDefault: 1,
+  plannedShrinkageDefault: 0,
+  unplannedShrinkageDefault: 0,
+  weights: {
+    cbp: 1,
+    webpay: 0.4,
+    uncleared: 5.5,
+    astnc: 8.5,
+    updateToResolve: 1.5,
+    settlementVariance: 1.1,
+    inbound: 0.4,
+    stip: 8.5,
+    undelivered: 1.5,
+    fundsShortage: 0.7,
+    cbpCallAudit: 0.8,
+    cbpWebpayAudit: 0.4,
+    caseAudit: 0.6,
+    emailAudit: 0.3,
+    reporting: 0.5,
+    downtime: 6,
+    other: 0.5,
+  },
+};
+
+function doGet() {
+  return HtmlService.createTemplateFromFile("Index")
+    .evaluate()
+    .setTitle("Agent Utilization Dashboard")
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+function getWorkbook_() {
+  const spreadsheetId = PropertiesService.getScriptProperties().getProperty(CONFIG.spreadsheetIdProperty);
+  if (spreadsheetId) return SpreadsheetApp.openById(spreadsheetId);
+  return SpreadsheetApp.getActiveSpreadsheet();
+}
+
+function extractSpreadsheetId_(spreadsheetUrlOrId) {
+  const value = String(spreadsheetUrlOrId || "").trim();
+  const match = value.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  return match ? match[1] : value;
+}
+
+function setupWorkbook() {
+  setupWorkbook_();
+  clearPortalCache_();
+  PropertiesService.getScriptProperties().setProperty("schemaVersion", CONFIG.schemaVersion);
+}
+
+function setLinkedSpreadsheetId(spreadsheetUrlOrId) {
+  const spreadsheetId = extractSpreadsheetId_(spreadsheetUrlOrId);
+  if (!spreadsheetId) throw new Error("Please provide a valid Google Sheet URL or Spreadsheet ID.");
+  PropertiesService.getScriptProperties().setProperty(CONFIG.spreadsheetIdProperty, spreadsheetId);
+  setupWorkbook_();
+  clearPortalCache_();
+  return `CRM linked to spreadsheet ${spreadsheetId}.`;
+}
+
+function clearLinkedSpreadsheetId() {
+  PropertiesService.getScriptProperties().deleteProperty(CONFIG.spreadsheetIdProperty);
+  clearPortalCache_();
+  return "CRM spreadsheet link cleared. It will use the active spreadsheet again.";
+}
+
+function getAppData() {
+  ensureWorkbookReady_();
+  const today = new Date();
+  const access = getCurrentUserAccess_();
+  const teamData = filterTeamDataForAccess_(getCachedTeamData_(), access);
+  const teams = TEAM_ORDER.filter((team) => Boolean(teamData[team]));
+  return {
+    teams,
+    teamData,
+    access: getPublicAccess_(access),
+    workdayHours: CONFIG.workdayHours,
+    targetUtilization: CONFIG.targetUtilization,
+    today: Utilities.formatDate(today, Session.getScriptTimeZone(), "yyyy-MM-dd"),
+    month: Utilities.formatDate(today, Session.getScriptTimeZone(), "yyyy-MM"),
+  };
+}
+
+function getMonthlyUtilization(request) {
+  ensureWorkbookReady_();
+  const month = request && request.month ? request.month : Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM");
+  const team = request && request.team ? request.team : TEAM_ORDER[0];
+  const access = getCurrentUserAccess_();
+  assertTeamAccess_(team, access);
+  const dailyDate = request && request.dailyDate ? normalizeDate_(request.dailyDate) : normalizeDate_(new Date());
+  const monthStart = new Date(`${month}-01T00:00:00`);
+  const monthEnd = new Date(monthStart);
+  monthEnd.setMonth(monthEnd.getMonth() + 1);
+
+  const agents = getAgents_(team).filter((agent) => canViewAgent_(access, team, agent));
+  const sheet = getWorkbook_().getSheetByName(CONFIG.sheets.entries);
+  const headerMap = getHeaderMap_(sheet);
+  const rows = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues()
+    : [];
+
+  const byAgent = {};
+  agents.forEach((agent) => {
+    byAgent[agent] = {
+      agent,
+      totalVolume: 0,
+      productiveHours: 0,
+      entryDays: 0,
+      utilization: 0,
+      status: "No data",
+    };
+  });
+  const byAgentDaily = {};
+  agents.forEach((agent) => {
+    byAgentDaily[agent] = {
+      agent,
+      totalVolume: 0,
+      productiveHours: 0,
+      entryDays: 0,
+      utilization: 0,
+      status: "No data",
+    };
+  });
+
+  rows.forEach((row) => {
+    const workDate = normalizeDate_(row[headerMap["Work Date"]]);
+    const rowTeam = String(row[headerMap.Team] || "").trim();
+    const agent = getCanonicalAgentName_(rowTeam, String(row[headerMap.Agent] || "").trim());
+    if (!workDate || !agent || rowTeam !== team || (!byAgent[agent] && !byAgentDaily[agent])) return;
+
+    const totalVolume = Number(row[headerMap["Total Volume"]]) || 0;
+    const productiveHours = Number(row[headerMap["Productive Hours"]]) || 0;
+    if (workDate >= monthStart && workDate < monthEnd && byAgent[agent]) {
+      byAgent[agent].totalVolume += totalVolume;
+      byAgent[agent].productiveHours += productiveHours;
+      if (totalVolume > 0) byAgent[agent].entryDays += 1;
+    }
+    if (dailyDate && datesMatch_(workDate, dailyDate) && byAgentDaily[agent]) {
+      byAgentDaily[agent].totalVolume += totalVolume;
+      byAgentDaily[agent].productiveHours += productiveHours;
+      if (totalVolume > 0) byAgentDaily[agent].entryDays += 1;
+    }
+  });
+
+  const agentsData = summarizeAgentData_(agents, byAgent);
+  const dailyAgentsData = summarizeAgentData_(agents, byAgentDaily);
+
+  const activeAgents = agentsData.filter((item) => item.entryDays > 0).length;
+  const totalVolume = agentsData.reduce((sum, item) => sum + item.totalVolume, 0);
+  const productiveHours = agentsData.reduce((sum, item) => sum + item.productiveHours, 0);
+  const entryDays = agentsData.reduce((sum, item) => sum + item.entryDays, 0);
+  const avgUtilization = entryDays > 0 ? productiveHours / (entryDays * CONFIG.workdayHours) : 0;
+
+  return {
+    month,
+    team,
+    dailyDate: dailyDate ? Utilities.formatDate(dailyDate, Session.getScriptTimeZone(), "yyyy-MM-dd") : "",
+    totalVolume,
+    productiveHours,
+    entryDays,
+    avgUtilization,
+    activeAgents,
+    agents: agentsData,
+    dailyAgents: dailyAgentsData,
+  };
+}
+
+function getKraDashboard(request) {
+  ensureWorkbookReady_();
+  const month = request && request.month ? request.month : Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM");
+  const team = request && request.team ? request.team : TEAM_ORDER[0];
+  const access = getCurrentUserAccess_();
+  assertTeamAccess_(team, access);
+  const cacheKey = getKraDashboardCacheKey_(month, team, access);
+  const cachedDashboard = CacheService.getScriptCache().get(cacheKey);
+  if (cachedDashboard) return JSON.parse(cachedDashboard);
+
+  const monthStart = new Date(`${month}-01T00:00:00`);
+  const monthEnd = new Date(monthStart);
+  monthEnd.setMonth(monthEnd.getMonth() + 1);
+  const defaultWorkingDays = countWeekdays_(monthStart, monthEnd);
+  const defaultTarget = getKraTarget_(defaultWorkingDays);
+
+  const agents = getAgents_(team)
+    .filter((agent) => !isLeadAgentName_(agent))
+    .filter((agent) => canViewAgent_(access, team, agent));
+  const tasks = getTasks_(team);
+  const taskWeights = tasks.map((task) => getKraWeight_(task));
+  const sheet = getWorkbook_().getSheetByName(CONFIG.sheets.kraEntries);
+  const rows = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues()
+    : [];
+
+  const byAgent = {};
+  agents.forEach((agent) => {
+    byAgent[agent] = {
+      agent,
+      workingDays: defaultWorkingDays,
+      target: defaultTarget,
+      totalProduction: 0,
+      totalVolume: 0,
+      qualityScore: KRA_CONFIG.qualityDefault,
+      auditCount: 0,
+      internalFatalErrors: 0,
+      internalNonFatalErrors: 0,
+      coachingFatalErrors: 0,
+      coachingNonFatalErrors: 0,
+      plannedShrinkage: KRA_CONFIG.plannedShrinkageDefault,
+      unplannedShrinkage: KRA_CONFIG.unplannedShrinkageDefault,
+    };
+  });
+
+  rows.forEach((row) => {
+    const rowMonth = String(row[1] || "").trim();
+    const rowTeam = String(row[2] || "").trim();
+    const agent = getCanonicalAgentName_(rowTeam, String(row[3] || "").trim());
+    if (rowMonth !== month || rowTeam !== team || !byAgent[agent]) return;
+
+    tasks.forEach((task, index) => {
+      const count = Number(row[4 + index * 2]) || 0;
+      byAgent[agent].totalVolume += count;
+      byAgent[agent].totalProduction += count * taskWeights[index];
+    });
+
+    const summaryStart = 4 + MAX_TASK_SLOTS * 2;
+    const savedWorkingDays = Number(row[summaryStart + 2]) || 0;
+    const savedTarget = Number(row[summaryStart + 3]) || 0;
+    byAgent[agent].workingDays = savedWorkingDays || defaultWorkingDays;
+    byAgent[agent].target = savedTarget || getKraTarget_(byAgent[agent].workingDays);
+    byAgent[agent].auditCount = Number(row[summaryStart + 4]) || 0;
+    byAgent[agent].internalFatalErrors = Number(row[summaryStart + 5]) || 0;
+    byAgent[agent].internalNonFatalErrors = Number(row[summaryStart + 6]) || 0;
+    byAgent[agent].coachingFatalErrors = Number(row[summaryStart + 7]) || 0;
+    byAgent[agent].coachingNonFatalErrors = Number(row[summaryStart + 8]) || 0;
+    byAgent[agent].qualityScore = normalizeQualityScore_(row[summaryStart + 9], KRA_CONFIG.qualityDefault);
+    byAgent[agent].plannedShrinkage = Number(row[summaryStart + 10]) || 0;
+    byAgent[agent].unplannedShrinkage = Number(row[summaryStart + 11]) || 0;
+  });
+
+  const agentsData = agents.map((agent) => summarizeKraAgent_(byAgent[agent]));
+  const activeAgents = agentsData.filter((item) => item.totalVolume > 0).length;
+  const avgAttainment = activeAgents
+    ? agentsData.reduce((sum, item) => sum + (item.totalVolume > 0 ? item.overallAttainment : 0), 0) / activeAgents
+    : 0;
+  const avgRating = activeAgents
+    ? agentsData.reduce((sum, item) => sum + (item.totalVolume > 0 ? item.actualRating : 0), 0) / activeAgents
+    : 0;
+  const totalProduction = agentsData.reduce((sum, item) => sum + item.totalProduction, 0);
+  const targetMet = agentsData.filter((item) => item.totalVolume > 0 && item.overallAttainment >= 1).length;
+
+  const dashboard = {
+    month,
+    team,
+    workingDays: defaultWorkingDays,
+    target: defaultTarget,
+    totalProduction,
+    avgAttainment,
+    avgRating,
+    activeAgents,
+    targetMet,
+    agents: agentsData,
+  };
+  CacheService.getScriptCache().put(cacheKey, JSON.stringify(dashboard), CONFIG.kraCacheSeconds);
+  return dashboard;
+}
+
+function getKraEntry(request) {
+  ensureWorkbookReady_();
+  const month = request && request.month ? request.month : Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM");
+  const team = request && request.team ? request.team : TEAM_ORDER[0];
+  const agent = request && request.agent ? String(request.agent).trim() : "";
+  const defaultMetrics = getDefaultKraMetrics_(month);
+  if (!agent) return { month, team, agent, counts: {}, comments: {}, metrics: defaultMetrics };
+
+  const access = getCurrentUserAccess_();
+  assertTeamAccess_(team, access);
+  if (!canEditKraEntries_(access, team) && !canViewAgent_(access, team, agent)) {
+    throw new Error("You do not have access to this KRA entry.");
+  }
+
+  const sheet = getWorkbook_().getSheetByName(CONFIG.sheets.kraEntries);
+  const rowNumber = findKraEntryRow_(sheet, month, team, agent);
+  const tasks = getTasks_(team);
+  const counts = {};
+  const comments = {};
+  let metrics = defaultMetrics;
+  if (rowNumber) {
+    const row = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+    tasks.forEach((task, index) => {
+      counts[task[0]] = Number(row[4 + index * 2]) || 0;
+      comments[task[0]] = String(row[5 + index * 2] || "");
+    });
+    metrics = readKraMetricsFromRow_(row, defaultMetrics);
+  }
+  return { month, team, agent, counts, comments, metrics };
+}
+
+function saveKraEntry(payload) {
+  ensureWorkbookReady_();
+  if (!payload) throw new Error("Missing KRA entry.");
+  const month = String(payload.month || "").trim();
+  const team = String(payload.team || "").trim();
+  const agent = String(payload.agent || "").trim();
+  if (!month) throw new Error("Please select a month.");
+  if (!team) throw new Error("Please select a team.");
+  if (!agent) throw new Error("Please select an agent.");
+
+  const access = getCurrentUserAccess_();
+  assertTeamAccess_(team, access);
+  if (!canEditKraEntries_(access, team)) {
+    throw new Error("Only leads/admin can save KRA monthly data.");
+  }
+  if (!canViewAgent_(access, team, agent)) {
+    throw new Error("You do not have access to save KRA for this agent.");
+  }
+
+  const tasks = getTasks_(team);
+  const taskWeights = tasks.map((task) => getKraWeight_(task));
+  const taskCounts = tasks.map((task) => Number((payload.counts && payload.counts[task[0]]) || 0));
+  const taskComments = tasks.map((task) => String((payload.comments && payload.comments[task[0]]) || "").trim());
+  const totalVolume = taskCounts.reduce((sum, value) => sum + value, 0);
+  const totalProduction = taskCounts.reduce((sum, value, index) => sum + value * taskWeights[index], 0);
+  const metrics = normalizeKraMetrics_(payload.metrics, month);
+  const summary = summarizeKraAgent_({
+    agent,
+    workingDays: metrics.workingDays,
+    target: metrics.target,
+    totalProduction,
+    totalVolume,
+    qualityScore: metrics.qualityScore,
+    auditCount: metrics.auditCount,
+    internalFatalErrors: metrics.internalFatalErrors,
+    internalNonFatalErrors: metrics.internalNonFatalErrors,
+    coachingFatalErrors: metrics.coachingFatalErrors,
+    coachingNonFatalErrors: metrics.coachingNonFatalErrors,
+    plannedShrinkage: metrics.plannedShrinkage,
+    unplannedShrinkage: metrics.unplannedShrinkage,
+  });
+  const row = buildKraEntryRow_(payload, taskCounts, taskComments, totalVolume, totalProduction, metrics, summary, MAX_TASK_SLOTS);
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const spreadsheet = getWorkbook_();
+    const sheet = spreadsheet.getSheetByName(CONFIG.sheets.kraEntries);
+    const teamSheet = getOrCreateMonthlyTeamKraEntriesSheet_(spreadsheet, team, month, tasks);
+    const rowNumber = findKraEntryRow_(sheet, month, team, agent);
+    if (rowNumber) {
+      sheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
+    } else {
+      sheet.appendRow(row);
+    }
+
+    const teamRow = buildKraEntryRow_(payload, taskCounts, taskComments, totalVolume, totalProduction, metrics, summary, tasks.length);
+    const teamRowNumber = findKraEntryRow_(teamSheet, month, team, agent);
+    if (teamRowNumber) {
+      teamSheet.getRange(teamRowNumber, 1, 1, teamRow.length).setValues([teamRow]);
+    } else {
+      teamSheet.appendRow(teamRow);
+    }
+  } finally {
+    lock.releaseLock();
+  }
+
+  bumpKraCacheVersion_();
+
+  return {
+    message: "KRA monthly data saved.",
+    month,
+    team,
+    agentSummary: summary,
+  };
+}
+
+function sendKraEmail(payload) {
+  ensureWorkbookReady_();
+  if (!payload) throw new Error("Missing email request.");
+
+  const recipient = String(payload.email || "").trim();
+  if (!isValidEmail_(recipient)) throw new Error("Please enter a valid email address.");
+
+  const month = payload.month || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM");
+  const team = payload.team || TEAM_ORDER[0];
+  const selectedAgent = String(payload.agent || "").trim();
+  if (!selectedAgent) throw new Error("Please select an agent before emailing KRA.");
+
+  const access = getCurrentUserAccess_();
+  assertTeamAccess_(team, access);
+  if (!canViewAgent_(access, team, selectedAgent)) {
+    throw new Error("You do not have access to email this agent's KRA.");
+  }
+
+  const emailData = getKraEmailAgentData_(month, team, selectedAgent, payload);
+  if (!emailData) throw new Error("No saved KRA data is available to email for this agent.");
+
+  const monthLabel = formatMonthLabel_(month);
+  const canEditTemplate = canEditEmailTemplate_(access, team);
+  const defaultSubject = getDefaultKraEmailSubject_(monthLabel, selectedAgent);
+  const defaultBody = getDefaultKraEmailBody_(monthLabel, selectedAgent);
+  const subject = canEditTemplate && String(payload.subject || "").trim()
+    ? String(payload.subject).trim()
+    : defaultSubject;
+  const introBody = canEditTemplate && String(payload.body || "").trim()
+    ? String(payload.body).trim()
+    : defaultBody;
+  const htmlBody = buildKraEmailHtml_(
+    { month, team },
+    [emailData.summary],
+    selectedAgent,
+    monthLabel,
+    introBody,
+    emailData.taskDetails
+  );
+  const plainBody = `${introBody}\n\nKRA data is included in the HTML version of this email.`;
+  const cc = getKraEmailCc_(team, selectedAgent, recipient);
+
+  const mailOptions = {
+    to: recipient,
+    subject,
+    htmlBody,
+    body: plainBody,
+    name: "Agent Utilization Dashboard",
+  };
+  if (cc) mailOptions.cc = cc;
+
+  MailApp.sendEmail(mailOptions);
+
+  return {
+    message: `KRA email sent to ${recipient}.`,
+  };
+}
+
+function getKraEmailCc_(team, agentName, recipient) {
+  const profile = getAgentProfiles_(team).find((item) => item.name === agentName);
+  if (!profile) return "";
+  const leadName = String(profile.lead || "").trim().replace(/\s*\(Team Lead\)\s*$/i, "");
+  const rule = KRA_EMAIL_CC_RULES.find((item) => item.team === team && item.lead === leadName);
+  if (!rule) return "";
+  const recipientEmail = String(recipient || "").trim().toLowerCase();
+  return rule.cc
+    .filter((email) => String(email || "").trim())
+    .filter((email, index, list) => list.indexOf(email) === index)
+    .filter((email) => String(email).toLowerCase() !== recipientEmail)
+    .join(",");
+}
+
+function getKraEmailAgentData_(month, team, agent, payload) {
+  const tasks = getTasks_(team);
+  if (payload && payload.counts) {
+    return buildKraEmailAgentDataFromInput_(
+      month,
+      agent,
+      tasks,
+      payload.counts,
+      payload.comments || {},
+      payload.metrics || {}
+    );
+  }
+
+  const sheet = getWorkbook_().getSheetByName(CONFIG.sheets.kraEntries);
+  const rowNumber = findKraEntryRow_(sheet, month, team, agent);
+  if (!rowNumber) return null;
+
+  const row = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const metrics = readKraMetricsFromRow_(row, getDefaultKraMetrics_(month));
+  const counts = {};
+  const comments = {};
+
+  tasks.forEach((task, index) => {
+    counts[task[0]] = Number(row[4 + index * 2]) || 0;
+    comments[task[0]] = String(row[5 + index * 2] || "").trim();
+  });
+
+  return buildKraEmailAgentDataFromInput_(month, agent, tasks, counts, comments, metrics);
+}
+
+function buildKraEmailAgentDataFromInput_(month, agent, tasks, counts, comments, metricsInput) {
+  const metrics = normalizeKraMetrics_(metricsInput, month);
+  const taskDetails = [];
+  let totalVolume = 0;
+  let totalProduction = 0;
+
+  tasks.forEach((task) => {
+    const count = Number(counts && counts[task[0]]) || 0;
+    const comment = String((comments && comments[task[0]]) || "").trim();
+    const aht = Number(task[2]) || 0;
+    if (count || comment) {
+      taskDetails.push({
+        taskId: String(task[0]),
+        taskName: String(task[1]),
+        aht,
+        count,
+        comment,
+      });
+    }
+    totalVolume += count;
+    totalProduction += count * getKraWeight_(task);
+  });
+
+  const summary = summarizeKraAgent_({
+    agent,
+    workingDays: metrics.workingDays,
+    target: metrics.target,
+    totalProduction,
+    totalVolume,
+    qualityScore: metrics.qualityScore,
+    auditCount: metrics.auditCount,
+    internalFatalErrors: metrics.internalFatalErrors,
+    internalNonFatalErrors: metrics.internalNonFatalErrors,
+    coachingFatalErrors: metrics.coachingFatalErrors,
+    coachingNonFatalErrors: metrics.coachingNonFatalErrors,
+    plannedShrinkage: metrics.plannedShrinkage,
+    unplannedShrinkage: metrics.unplannedShrinkage,
+  });
+
+  return { summary, taskDetails };
+}
+
+function getDefaultKraEmailSubject_(monthLabel, agentName) {
+  return `Monthly Performance Report - ${monthLabel} (${agentName})`;
+}
+
+function getDefaultKraEmailBody_(monthLabel, agentName) {
+  return `Hi ${agentName},\n\nPlease find below your Monthly Performance for ${monthLabel}.`;
+}
+
+function canEditEmailTemplate_(access, team) {
+  return Boolean(access && access.isAdmin);
+}
+
+function buildKraEmailHtml_(dashboard, agents, titleName, monthLabel, introBody, taskDetails) {
+  const activeAgents = agents.filter((item) => Number(item.totalVolume || 0) > 0).length;
+  const totalProduction = agents.reduce((sum, item) => sum + Number(item.totalProduction || 0), 0);
+  const avgAttainment = activeAgents
+    ? agents.reduce((sum, item) => sum + (Number(item.totalVolume || 0) > 0 ? Number(item.overallAttainment || 0) : 0), 0) / activeAgents
+    : 0;
+  const avgRating = activeAgents
+    ? agents.reduce((sum, item) => sum + (Number(item.totalVolume || 0) > 0 ? Number(item.actualRating || 0) : 0), 0) / activeAgents
+    : 0;
+  const targetMet = agents.filter((item) => Number(item.totalVolume || 0) > 0 && Number(item.overallAttainment || 0) >= 1).length;
+  const workingDays = agents.length ? Number(agents[0].workingDays || 0) : 0;
+  const target = agents.length ? Number(agents[0].target || 0) : 0;
+  const introHtml = textToHtml_(introBody);
+  const rows = agents.map((item, index) => `
+    <tr>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;">${index + 1}</td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;"><strong>${escapeHtml_(item.agent)}</strong><br><span style="color:#566b62;font-size:11px;">${escapeHtml_(item.status || "No data")}</span></td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;text-align:right;">${formatNumber_(item.totalVolume, 0)}</td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;text-align:right;">${formatNumber_(item.totalProduction, 1)}</td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;text-align:right;">${formatNumber_(item.target, 0)}</td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;text-align:right;">${formatNumber_(item.auditCount, 0)}</td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;text-align:right;">${formatPercent_(item.qualityScore)}</td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;text-align:right;">${formatNumber_(item.plannedShrinkage, 1)}</td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;text-align:right;">${formatNumber_(item.unplannedShrinkage, 1)}</td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;text-align:right;">${formatPercent_(item.productionContribution)}</td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;text-align:right;">${formatPercent_(item.qualityContribution)}</td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;text-align:right;">${formatPercent_(item.shrinkageContribution)}</td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;text-align:right;"><strong>${formatPercent_(item.overallAttainment)}</strong></td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;text-align:right;"><strong>${formatNumber_(item.actualRating, 1)}</strong></td>
+    </tr>
+  `).join("");
+  const taskRows = (taskDetails || []).map((task, index) => `
+    <tr>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;">${index + 1}</td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;"><strong>${escapeHtml_(task.taskName)}</strong><br><span style="color:#566b62;font-size:11px;">${escapeHtml_(task.taskId)}</span></td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;text-align:right;">${formatNumber_(task.aht, 0)} min</td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;text-align:right;"><strong>${formatNumber_(task.count, 0)}</strong></td>
+      <td style="padding:10px;border-bottom:1px solid #d6e6df;">${escapeHtml_(task.comment || "")}</td>
+    </tr>
+  `).join("");
+  const taskSection = taskRows ? `
+        <div style="background:#ffffff;border:1px solid #bdd5cc;border-radius:8px;overflow:auto;margin-top:14px;">
+          <div style="background:#eaf5f0;border-bottom:1px solid #bdd5cc;padding:12px 14px;font-weight:900;">Task-wise KRA Numbers</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead>
+              <tr>
+                <th style="padding:9px 10px;text-align:left;background:#f3faf6;border-bottom:1px solid #bdd5cc;">#</th>
+                <th style="padding:9px 10px;text-align:left;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Task</th>
+                <th style="padding:9px 10px;text-align:right;background:#f3faf6;border-bottom:1px solid #bdd5cc;">AHT</th>
+                <th style="padding:9px 10px;text-align:right;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Count</th>
+                <th style="padding:9px 10px;text-align:left;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Comment</th>
+              </tr>
+            </thead>
+            <tbody>${taskRows}</tbody>
+          </table>
+        </div>
+  ` : "";
+
+  return `
+    <div style="margin:0;padding:0;background-color:#f6faf8;background-image:url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22220%22 height=%22130%22 viewBox=%220 0 220 130%22%3E%3Ctext x=%2216%22 y=%2278%22 fill=%22%23073525%22 fill-opacity=%220.055%22 font-family=%22Arial, Helvetica, sans-serif%22 font-size=%2230%22 font-weight=%22900%22 letter-spacing=%223%22 transform=%22rotate(-24 110 65)%22%3EPRTH%3C/text%3E%3C/svg%3E');background-repeat:repeat;background-size:220px 130px;color:#0b3024;font-family:Arial,Helvetica,sans-serif;">
+      <div style="max-width:1080px;margin:0 auto;padding:22px;">
+        <div style="background:#065f3f;color:#ffffff;border-radius:8px;padding:18px;margin-bottom:14px;">
+          <h1 style="margin:0 0 7px;font-size:28px;line-height:1.15;">Monthly KRA Summary</h1>
+          <p style="margin:0;color:#d7efe6;font-weight:800;">${escapeHtml_(titleName)} · ${escapeHtml_(dashboard.team)} · ${escapeHtml_(monthLabel)}</p>
+        </div>
+
+        <div style="background:#ffffff;border:1px solid #bdd5cc;border-radius:8px;padding:16px;margin-bottom:14px;color:#0b3024;font-size:14px;line-height:1.55;">
+          ${introHtml}
+        </div>
+
+        <table role="presentation" style="width:100%;border-collapse:separate;border-spacing:10px;margin:0 0 14px;">
+          <tr>
+            <td style="background:#eaf5f0;border:1px solid #bdd5cc;border-radius:6px;padding:12px;"><span style="display:block;color:#566b62;font-size:12px;font-weight:800;">Total Production</span><strong style="display:block;color:#065f3f;font-size:22px;margin-top:5px;">${formatNumber_(totalProduction, 1)}</strong></td>
+            <td style="background:#eaf5f0;border:1px solid #bdd5cc;border-radius:6px;padding:12px;"><span style="display:block;color:#566b62;font-size:12px;font-weight:800;">Avg Attainment</span><strong style="display:block;color:#065f3f;font-size:22px;margin-top:5px;">${formatPercent_(avgAttainment)}</strong></td>
+            <td style="background:#eaf5f0;border:1px solid #bdd5cc;border-radius:6px;padding:12px;"><span style="display:block;color:#566b62;font-size:12px;font-weight:800;">Avg Rating</span><strong style="display:block;color:#065f3f;font-size:22px;margin-top:5px;">${formatNumber_(avgRating, 1)}</strong></td>
+            <td style="background:#eaf5f0;border:1px solid #bdd5cc;border-radius:6px;padding:12px;"><span style="display:block;color:#566b62;font-size:12px;font-weight:800;">Target Met</span><strong style="display:block;color:#065f3f;font-size:22px;margin-top:5px;">${targetMet}/${activeAgents}</strong></td>
+            <td style="background:#eaf5f0;border:1px solid #bdd5cc;border-radius:6px;padding:12px;"><span style="display:block;color:#566b62;font-size:12px;font-weight:800;">Working Days</span><strong style="display:block;color:#065f3f;font-size:22px;margin-top:5px;">${formatNumber_(workingDays, 0)}</strong></td>
+            <td style="background:#eaf5f0;border:1px solid #bdd5cc;border-radius:6px;padding:12px;"><span style="display:block;color:#566b62;font-size:12px;font-weight:800;">Monthly Target</span><strong style="display:block;color:#065f3f;font-size:22px;margin-top:5px;">${formatNumber_(target, 0)}</strong></td>
+          </tr>
+        </table>
+
+        <div style="background:#ffffff;border:1px solid #bdd5cc;border-radius:8px;overflow:auto;">
+          <div style="background:#eaf5f0;border-bottom:1px solid #bdd5cc;padding:12px 14px;font-weight:900;">Agent-wise KRA Details</div>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead>
+              <tr>
+                <th style="padding:9px 10px;text-align:left;background:#f3faf6;border-bottom:1px solid #bdd5cc;">#</th>
+                <th style="padding:9px 10px;text-align:left;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Agent</th>
+                <th style="padding:9px 10px;text-align:right;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Volume</th>
+                <th style="padding:9px 10px;text-align:right;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Production</th>
+                <th style="padding:9px 10px;text-align:right;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Target</th>
+                <th style="padding:9px 10px;text-align:right;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Audits</th>
+                <th style="padding:9px 10px;text-align:right;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Quality</th>
+                <th style="padding:9px 10px;text-align:right;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Planned</th>
+                <th style="padding:9px 10px;text-align:right;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Unplanned</th>
+                <th style="padding:9px 10px;text-align:right;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Prod 60%</th>
+                <th style="padding:9px 10px;text-align:right;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Quality 30%</th>
+                <th style="padding:9px 10px;text-align:right;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Shrinkage 10%</th>
+                <th style="padding:9px 10px;text-align:right;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Attainment</th>
+                <th style="padding:9px 10px;text-align:right;background:#f3faf6;border-bottom:1px solid #bdd5cc;">Rating</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        ${taskSection}
+      </div>
+    </div>
+  `;
+}
+
+function isValidEmail_(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
+}
+
+function formatMonthLabel_(month) {
+  const parts = String(month || "").split("-");
+  if (parts.length !== 2) return month || "";
+  const date = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), "MMMM yyyy");
+}
+
+function formatPercent_(value) {
+  return `${Math.round(Number(value || 0) * 100)}%`;
+}
+
+function formatNumber_(value, digits) {
+  return Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+}
+
+function escapeHtml_(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function textToHtml_(value) {
+  return escapeHtml_(value)
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p style="margin:0 0 10px;">${paragraph.replace(/\n/g, "<br>")}</p>`)
+    .join("");
+}
+
+function summarizeKraAgent_(item) {
+  const productionContribution = item.target > 0 ? (item.totalProduction / item.target) * 0.6 : 0;
+  const hasFatalError = Number(item.internalFatalErrors || 0) > 0 || Number(item.coachingFatalErrors || 0) > 0;
+  const qualityContribution = hasFatalError
+    ? 0
+    : item.qualityScore >= 0.99
+    ? 0.3
+    : item.qualityScore > 0.97
+      ? 0.24
+      : item.qualityScore > 0.9499
+        ? 0.18
+        : item.qualityScore > 0.92
+          ? 0.12
+          : 0;
+  const shrinkageContribution = productionContribution >= 0.6
+    ? 0.1
+    : item.unplannedShrinkage >= 1
+      ? 0
+      : item.plannedShrinkage <= 2
+        ? 0.1
+        : 0;
+  const overallAttainment = productionContribution + qualityContribution + shrinkageContribution;
+  const actualRating = overallAttainment < 0.8
+    ? 1
+    : overallAttainment >= 1.15
+      ? 5
+      : 2 + (overallAttainment - 0.8) * (3 / 0.4);
+
+  return {
+    ...item,
+    productionContribution,
+    qualityContribution,
+    shrinkageContribution,
+    overallAttainment,
+    actualRating: Math.max(1, Math.min(5, actualRating)),
+    status: item.totalVolume === 0
+      ? "No data"
+      : overallAttainment >= 1
+        ? "On target"
+        : overallAttainment >= 0.8
+          ? "Watch"
+          : "Below target",
+  };
+}
+
+function getDefaultKraMetrics_(month) {
+  const monthStart = new Date(`${month}-01T00:00:00`);
+  const monthEnd = new Date(monthStart);
+  monthEnd.setMonth(monthEnd.getMonth() + 1);
+  const workingDays = countWeekdays_(monthStart, monthEnd);
+  return {
+    workingDays,
+    target: getKraTarget_(workingDays),
+    auditCount: 0,
+    internalFatalErrors: 0,
+    internalNonFatalErrors: 0,
+    coachingFatalErrors: 0,
+    coachingNonFatalErrors: 0,
+    qualityScore: KRA_CONFIG.qualityDefault,
+    plannedShrinkage: KRA_CONFIG.plannedShrinkageDefault,
+    unplannedShrinkage: KRA_CONFIG.unplannedShrinkageDefault,
+  };
+}
+
+function getKraTarget_(workingDays) {
+  return Math.max(0, (Number(workingDays) || 0) - 2) * KRA_CONFIG.targetPerDay;
+}
+
+function normalizeKraMetrics_(metrics, month) {
+  const defaults = getDefaultKraMetrics_(month);
+  const workingDays = Number(metrics && metrics.workingDays) || defaults.workingDays;
+  const target = Number(metrics && metrics.target) || getKraTarget_(workingDays);
+  return {
+    workingDays,
+    target,
+    auditCount: Number(metrics && metrics.auditCount) || 0,
+    internalFatalErrors: Number(metrics && metrics.internalFatalErrors) || 0,
+    internalNonFatalErrors: Number(metrics && metrics.internalNonFatalErrors) || 0,
+    coachingFatalErrors: Number(metrics && metrics.coachingFatalErrors) || 0,
+    coachingNonFatalErrors: Number(metrics && metrics.coachingNonFatalErrors) || 0,
+    qualityScore: normalizeQualityScore_(metrics && metrics.qualityScore, defaults.qualityScore),
+    plannedShrinkage: Number(metrics && metrics.plannedShrinkage) || 0,
+    unplannedShrinkage: Number(metrics && metrics.unplannedShrinkage) || 0,
+  };
+}
+
+function readKraMetricsFromRow_(row, defaults) {
+  const summaryStart = 4 + MAX_TASK_SLOTS * 2;
+  const workingDays = Number(row[summaryStart + 2]) || defaults.workingDays;
+  return {
+    workingDays,
+    target: Number(row[summaryStart + 3]) || getKraTarget_(workingDays),
+    auditCount: Number(row[summaryStart + 4]) || 0,
+    internalFatalErrors: Number(row[summaryStart + 5]) || 0,
+    internalNonFatalErrors: Number(row[summaryStart + 6]) || 0,
+    coachingFatalErrors: Number(row[summaryStart + 7]) || 0,
+    coachingNonFatalErrors: Number(row[summaryStart + 8]) || 0,
+    qualityScore: normalizeQualityScore_(row[summaryStart + 9], defaults.qualityScore),
+    plannedShrinkage: Number(row[summaryStart + 10]) || 0,
+    unplannedShrinkage: Number(row[summaryStart + 11]) || 0,
+  };
+}
+
+function normalizeQualityScore_(value, fallback) {
+  if (value === "" || value == null) return fallback;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  if (number > 1) return Math.max(0, Math.min(1, number / 100));
+  return Math.max(0, Math.min(1, number));
+}
+
+function isLeadAgentName_(name) {
+  return String(name || "").includes("(Team Lead)");
+}
+
+function getKraWeight_(task) {
+  return (Number(task && task[2]) || 0) / 10;
+}
+
+function summarizeAgentData_(agents, byAgent) {
+  return agents.map((agent) => {
+    const item = byAgent[agent];
+    item.utilization = item.entryDays > 0 ? item.productiveHours / (item.entryDays * CONFIG.workdayHours) : 0;
+    item.status = item.entryDays === 0
+      ? "No data"
+      : item.utilization >= CONFIG.targetUtilization
+        ? "On target"
+        : item.utilization >= CONFIG.targetUtilization * 0.75
+          ? "Watch"
+          : "Below target";
+    return item;
+  });
+}
+
+function buildEntryRow_(payload, taskCounts, taskComments, timestamp, taskSlotCount) {
+  const taskCells = [];
+  for (let index = 0; index < taskSlotCount; index += 1) {
+    taskCells.push(taskCounts[index] || "", taskComments[index] || "");
+  }
+
+  return [
+    timestamp,
+    payload.date,
+    payload.team,
+    payload.agent,
+    ...taskCells,
+    "",
+    "",
+    "",
+    "",
+    "",
+    payload.notes || "",
+    payload.submittedBy || "",
+  ];
+}
+
+function buildCalculatedEntryRow_(payload, taskCounts, taskComments, timestamp, taskSlotCount, tasks) {
+  const row = buildEntryRow_(payload, taskCounts, taskComments, timestamp, taskSlotCount);
+  const totalVolume = taskCounts.reduce((sum, value) => sum + (Number(value) || 0), 0);
+  const productiveMinutes = taskCounts.reduce((sum, value, index) => {
+    const task = tasks[index];
+    return sum + (Number(value) || 0) * (task ? Number(task[2]) || 0 : 0);
+  }, 0);
+  const productiveHours = productiveMinutes / 60;
+  const utilization = productiveHours / CONFIG.workdayHours;
+  const status = totalVolume === 0
+    ? "No volume"
+    : utilization >= CONFIG.targetUtilization
+      ? "On target"
+      : utilization >= CONFIG.targetUtilization * 0.75
+        ? "Watch"
+        : "Below target";
+  const summaryStart = 4 + taskSlotCount * 2;
+  row[summaryStart] = totalVolume || "";
+  row[summaryStart + 1] = productiveMinutes || "";
+  row[summaryStart + 2] = productiveHours || "";
+  row[summaryStart + 3] = utilization || "";
+  row[summaryStart + 4] = status;
+  return row;
+}
+
+function buildKraEntryRow_(payload, taskCounts, taskComments, totalVolume, totalProduction, metrics, summary, taskSlotCount) {
+  const taskCells = [];
+  for (let index = 0; index < taskSlotCount; index += 1) {
+    taskCells.push(taskCounts[index] || "", taskComments[index] || "");
+  }
+  return [
+    new Date(),
+    payload.month,
+    payload.team,
+    payload.agent,
+    ...taskCells,
+    totalVolume,
+    totalProduction,
+    metrics.workingDays,
+    metrics.target,
+    metrics.auditCount,
+    metrics.internalFatalErrors,
+    metrics.internalNonFatalErrors,
+    metrics.coachingFatalErrors,
+    metrics.coachingNonFatalErrors,
+    metrics.qualityScore,
+    metrics.plannedShrinkage,
+    metrics.unplannedShrinkage,
+    summary.productionContribution,
+    summary.qualityContribution,
+    summary.shrinkageContribution,
+    summary.overallAttainment,
+    summary.actualRating,
+    payload.submittedBy || getCurrentUserEmail_(),
+  ];
+}
+
+function saveDailyEntry(payload) {
+  ensureWorkbookReady_();
+  validatePayload_(payload);
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+
+  try {
+    const spreadsheet = getWorkbook_();
+    const entriesSheet = spreadsheet.getSheetByName(CONFIG.sheets.entries);
+    const tasks = getTasks_(payload.team);
+    const teamEntriesSheet = getOrCreateMonthlyTeamEntriesSheet_(spreadsheet, payload.team, payload.date, tasks);
+    const taskCounts = tasks.map((task) => Number(payload.counts[task[0]]) || 0);
+    const taskComments = tasks.map((task) => String((payload.comments && payload.comments[task[0]]) || "").trim());
+    const totalVolume = taskCounts.reduce((sum, value) => sum + value, 0);
+    const productiveMinutes = taskCounts.reduce((sum, value, index) => {
+      return sum + value * (Number(tasks[index][2]) || 0);
+    }, 0);
+    const productiveHours = productiveMinutes / 60;
+    const utilization = productiveHours / CONFIG.workdayHours;
+    const status = totalVolume === 0
+      ? "No volume"
+      : utilization >= CONFIG.targetUtilization
+        ? "On target"
+        : utilization >= CONFIG.targetUtilization * 0.75
+          ? "Watch"
+          : "Below target";
+
+    const timestamp = new Date();
+    const row = buildEntryRow_(payload, taskCounts, taskComments, timestamp, MAX_TASK_SLOTS);
+
+    entriesSheet.appendRow(row);
+    const rowNumber = entriesSheet.getLastRow();
+    setEntryFormulas_(entriesSheet, rowNumber, tasks, MAX_TASK_SLOTS);
+    formatEntryRow_(entriesSheet, rowNumber, MAX_TASK_SLOTS);
+
+    const teamRow = buildEntryRow_(payload, taskCounts, taskComments, timestamp, tasks.length);
+    teamEntriesSheet.appendRow(teamRow);
+    const teamRowNumber = teamEntriesSheet.getLastRow();
+    setEntryFormulas_(teamEntriesSheet, teamRowNumber, tasks, tasks.length);
+    formatEntryRow_(teamEntriesSheet, teamRowNumber, tasks.length);
+
+    return {
+      ok: true,
+      message: "Saved",
+      totals: {
+        totalVolume,
+        productiveMinutes,
+        productiveHours,
+        utilization,
+        status,
+      },
+      dashboard: getMonthlyUtilization({ month: payload.date.slice(0, 7), dailyDate: payload.date, team: payload.team }),
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function saveBulkMonthlyEntries(payload) {
+  ensureWorkbookReady_();
+  if (!payload) throw new Error("Missing bulk upload.");
+  const team = String(payload.team || "").trim();
+  const month = String(payload.month || "").trim();
+  if (!TEAM_ORDER.includes(team)) throw new Error("Please select a valid team.");
+  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error("Please select a valid month.");
+  const tasks = getTasks_(team);
+  const rawEntries = payload.xlsxFile
+    ? parseBulkXlsxEntries_(payload.xlsxFile, tasks, month)
+    : (Array.isArray(payload.entries) ? payload.entries : []);
+  if (!rawEntries.length) throw new Error("No valid rows were found to upload.");
+  if (rawEntries.length > 1500) throw new Error("Please upload 1,500 rows or fewer at one time.");
+
+  const access = getCurrentUserAccess_();
+  assertTeamAccess_(team, access);
+  if (!canEditKraEntries_(access, team)) {
+    throw new Error("Only leads/admin can upload monthly team data.");
+  }
+
+  const agents = getAgents_(team);
+  const submittedBy = getCurrentUserEmail_();
+  const timestamp = new Date();
+  const knownAgents = new Set(agents);
+  const skippedAgents = [];
+  const entries = rawEntries.filter((entry) => {
+    const agent = getCanonicalAgentName_(team, String(entry && entry.agent || "").trim());
+    if (knownAgents.has(agent)) return true;
+    if (agent && !skippedAgents.includes(agent)) skippedAgents.push(agent);
+    return false;
+  });
+  if (!entries.length) throw new Error(`No rows matched configured agents for ${team}. Please check the Agent names in CRM.`);
+  const cleanEntries = entries.map((entry, index) => normalizeBulkEntry_(entry, team, month, agents, tasks, index + 2, submittedBy));
+  const uploadedKeys = new Set();
+  cleanEntries.forEach((entry) => {
+    const key = getEntryKey_(entry.date, team, entry.agent);
+    if (uploadedKeys.has(key)) throw new Error(`Duplicate upload row found for ${entry.agent} on ${entry.date}.`);
+    uploadedKeys.add(key);
+  });
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const spreadsheet = getWorkbook_();
+    const masterSheet = spreadsheet.getSheetByName(CONFIG.sheets.entries);
+    const teamSheet = getOrCreateMonthlyTeamEntriesSheet_(spreadsheet, team, month, tasks);
+    const masterIndex = buildEntryRowIndex_(masterSheet);
+    const teamIndex = buildEntryRowIndex_(teamSheet);
+    const masterAppends = [];
+    const teamAppends = [];
+    const kraCountsByAgent = {};
+
+    cleanEntries.forEach((entry) => {
+      const key = getEntryKey_(entry.date, team, entry.agent);
+      const taskCounts = tasks.map((task) => Number(entry.counts[task[0]]) || 0);
+      const taskComments = tasks.map((task) => String((entry.comments && entry.comments[task[0]]) || "").trim());
+      const rowPayload = {
+        date: entry.date,
+        team,
+        agent: entry.agent,
+        notes: entry.notes,
+        submittedBy: entry.submittedBy || submittedBy,
+      };
+      const masterRow = buildCalculatedEntryRow_(rowPayload, taskCounts, taskComments, timestamp, MAX_TASK_SLOTS, tasks);
+      const teamRow = buildCalculatedEntryRow_(rowPayload, taskCounts, taskComments, timestamp, tasks.length, tasks);
+
+      if (masterIndex[key]) {
+        masterSheet.getRange(masterIndex[key], 1, 1, masterRow.length).setValues([masterRow]);
+      } else {
+        masterAppends.push(masterRow);
+      }
+
+      if (teamIndex[key]) {
+        teamSheet.getRange(teamIndex[key], 1, 1, teamRow.length).setValues([teamRow]);
+      } else {
+        teamAppends.push(teamRow);
+      }
+
+      if (payload.updateKra) {
+        if (!kraCountsByAgent[entry.agent]) kraCountsByAgent[entry.agent] = {};
+        tasks.forEach((task) => {
+          kraCountsByAgent[entry.agent][task[0]] = (kraCountsByAgent[entry.agent][task[0]] || 0) + (Number(entry.counts[task[0]]) || 0);
+        });
+      }
+    });
+
+    appendEntryRows_(masterSheet, masterAppends, MAX_TASK_SLOTS);
+    appendEntryRows_(teamSheet, teamAppends, tasks.length);
+
+    let kraUpdated = 0;
+    if (payload.updateKra) {
+      kraUpdated = upsertBulkKraEntries_(spreadsheet, month, team, tasks, kraCountsByAgent, submittedBy);
+      bumpKraCacheVersion_();
+    }
+
+    return {
+      ok: true,
+      message: `${cleanEntries.length} daily rows uploaded${kraUpdated ? ` and ${kraUpdated} KRA rows updated` : ""}.${skippedAgents.length ? ` Skipped unconfigured agents: ${skippedAgents.join(", ")}.` : ""}`,
+      uploadedRows: cleanEntries.length,
+      kraUpdated,
+      skippedAgents,
+      dashboard: getMonthlyUtilization({ month, dailyDate: `${month}-01`, team }),
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function setupWorkbook_() {
+  const spreadsheet = getWorkbook_();
+  setupTasks_(spreadsheet);
+  setupAgents_(spreadsheet);
+  setupEntries_(spreadsheet);
+  setupKraEntries_(spreadsheet);
+  setupMonthlyTeamEntries_(spreadsheet);
+  setupMonthlyTeamKraEntries_(spreadsheet);
+  PropertiesService.getScriptProperties().setProperty("schemaVersion", CONFIG.schemaVersion);
+}
+
+function ensureWorkbookReady_() {
+  const properties = PropertiesService.getScriptProperties();
+  const spreadsheet = getWorkbook_();
+  const hasRequiredSheets = Boolean(
+    spreadsheet.getSheetByName(CONFIG.sheets.entries)
+      && spreadsheet.getSheetByName(CONFIG.sheets.kraEntries)
+      && spreadsheet.getSheetByName(CONFIG.sheets.agents)
+      && spreadsheet.getSheetByName(CONFIG.sheets.tasks)
+  );
+  if (properties.getProperty("schemaVersion") !== CONFIG.schemaVersion || !hasRequiredSheets) {
+    setupWorkbook_();
+    clearPortalCache_();
+  }
+}
+
+function setupTasks_(spreadsheet) {
+  let sheet = spreadsheet.getSheetByName(CONFIG.sheets.tasks);
+  if (!sheet) sheet = spreadsheet.insertSheet(CONFIG.sheets.tasks);
+
+  const headers = ["Team", "Task ID", "Task Name", "AHT Minutes"];
+  const currentHeaders = sheet.getLastRow() > 0
+    ? sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0]
+    : [];
+  const isCurrentLayout = headers.every((header, index) => currentHeaders[index] === header);
+
+  if (sheet.getLastRow() === 0 || !isCurrentLayout) {
+    if (sheet.getLastRow() > 0 && !isCurrentLayout) {
+      const backupName = `${CONFIG.sheets.tasks} Backup ${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MMddHHmm")}`;
+      sheet.copyTo(spreadsheet).setName(backupName);
+    }
+    sheet.clear();
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(2, 1, getSeedTasks_().length, headers.length).setValues(getSeedTasks_());
+  } else {
+    syncSeedTasks_(sheet);
+  }
+
+  sheet.setFrozenRows(1);
+  sheet.autoResizeColumns(1, headers.length);
+}
+
+function setupAgents_(spreadsheet) {
+  let sheet = spreadsheet.getSheetByName(CONFIG.sheets.agents);
+  if (!sheet) sheet = spreadsheet.insertSheet(CONFIG.sheets.agents);
+
+  const headers = ["Team", "Agent Name", "Employee ID", "Email Address", "Designation", "Process", "Lead"];
+  const currentHeaders = sheet.getLastRow() > 0
+    ? sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0]
+    : [];
+  const isCurrentLayout = headers.every((header, index) => currentHeaders[index] === header);
+
+  if (sheet.getLastRow() === 0 || !isCurrentLayout) {
+    if (sheet.getLastRow() > 0 && !isCurrentLayout) {
+      const backupName = `${CONFIG.sheets.agents} Backup ${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "MMddHHmm")}`;
+      sheet.copyTo(spreadsheet).setName(backupName);
+    }
+    sheet.clear();
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(2, 1, getSeedAgents_().length, headers.length).setValues(getSeedAgents_());
+  } else {
+    applyAgentRenames_(sheet);
+    ensureSeedAgents_(sheet);
+  }
+
+  sheet.setFrozenRows(1);
+  sheet.autoResizeColumns(1, headers.length);
+}
+
+function setupEntries_(spreadsheet) {
+  let sheet = spreadsheet.getSheetByName(CONFIG.sheets.entries);
+  if (!sheet) sheet = spreadsheet.insertSheet(CONFIG.sheets.entries);
+
+  const headers = buildMasterEntryHeaders_();
+  const currentHeaders = sheet.getLastRow() > 0
+    ? sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0]
+    : [];
+  const isCurrentLayout = headers.every((header, index) => currentHeaders[index] === header);
+
+  if (sheet.getLastRow() === 0 || sheet.getLastRow() === 1) {
+    sheet.clear();
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  } else if (!isCurrentLayout) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, 1, headers.length)
+    .setBackground("#0f3f46")
+    .setFontColor("#ffffff")
+    .setFontWeight("bold");
+  sheet.autoResizeColumns(1, headers.length);
+}
+
+function setupKraEntries_(spreadsheet) {
+  let sheet = spreadsheet.getSheetByName(CONFIG.sheets.kraEntries);
+  if (!sheet) sheet = spreadsheet.insertSheet(CONFIG.sheets.kraEntries);
+
+  const headers = buildKraEntryHeaders_();
+  const currentHeaders = sheet.getLastRow() > 0
+    ? sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0]
+    : [];
+  const isCurrentLayout = headers.every((header, index) => currentHeaders[index] === header);
+
+  if (sheet.getLastRow() === 0 || sheet.getLastRow() === 1) {
+    sheet.clear();
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  } else if (!isCurrentLayout) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+
+  sheet.setFrozenRows(1);
+  sheet.getRange(1, 1, 1, headers.length)
+    .setBackground("#0f3f46")
+    .setFontColor("#ffffff")
+    .setFontWeight("bold");
+  sheet.autoResizeColumns(1, headers.length);
+}
+
+function setupMonthlyTeamEntries_(spreadsheet) {
+  const monthsByTeam = getExistingEntryMonthsByTeam_(spreadsheet);
+  const currentMonth = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM");
+
+  TEAM_ORDER.forEach((team) => {
+    if (!monthsByTeam[team]) monthsByTeam[team] = new Set();
+    monthsByTeam[team].add(currentMonth);
+    const tasks = TEAM_CONFIGS[team].tasks;
+    Array.from(monthsByTeam[team]).sort().forEach((monthKey) => {
+      const sheet = getOrCreateMonthlyTeamEntriesSheet_(spreadsheet, team, monthKey, tasks);
+      if (sheet.getLastRow() <= 1) {
+        backfillMonthlyTeamEntries_(spreadsheet, sheet, team, tasks, monthKey);
+      }
+    });
+  });
+}
+
+function setupMonthlyTeamKraEntries_(spreadsheet) {
+  const monthsByTeam = getExistingKraMonthsByTeam_(spreadsheet);
+  const currentMonth = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM");
+
+  TEAM_ORDER.forEach((team) => {
+    if (!monthsByTeam[team]) monthsByTeam[team] = new Set();
+    monthsByTeam[team].add(currentMonth);
+    const tasks = TEAM_CONFIGS[team].tasks;
+    Array.from(monthsByTeam[team]).sort().forEach((monthKey) => {
+      const sheet = getOrCreateMonthlyTeamKraEntriesSheet_(spreadsheet, team, monthKey, tasks);
+      if (sheet.getLastRow() <= 1) {
+        backfillMonthlyTeamKraEntries_(spreadsheet, sheet, team, tasks, monthKey);
+      }
+    });
+  });
+}
+
+function getExistingEntryMonthsByTeam_(spreadsheet) {
+  const monthsByTeam = {};
+  TEAM_ORDER.forEach((team) => {
+    monthsByTeam[team] = new Set();
+  });
+
+  const masterSheet = spreadsheet.getSheetByName(CONFIG.sheets.entries);
+  if (!masterSheet || masterSheet.getLastRow() <= 1) return monthsByTeam;
+
+  const masterRows = masterSheet.getRange(2, 1, masterSheet.getLastRow() - 1, masterSheet.getLastColumn()).getValues();
+  masterRows.forEach((row) => {
+    const team = String(row[2] || "").trim();
+    const workDate = normalizeDate_(row[1]);
+    if (!TEAM_ORDER.includes(team) || !workDate) return;
+    monthsByTeam[team].add(Utilities.formatDate(workDate, Session.getScriptTimeZone(), "yyyy-MM"));
+  });
+
+  return monthsByTeam;
+}
+
+function getExistingKraMonthsByTeam_(spreadsheet) {
+  const monthsByTeam = {};
+  TEAM_ORDER.forEach((team) => {
+    monthsByTeam[team] = new Set();
+  });
+
+  const masterSheet = spreadsheet.getSheetByName(CONFIG.sheets.kraEntries);
+  if (!masterSheet || masterSheet.getLastRow() <= 1) return monthsByTeam;
+
+  const masterRows = masterSheet.getRange(2, 1, masterSheet.getLastRow() - 1, 4).getValues();
+  masterRows.forEach((row) => {
+    const month = String(row[1] || "").trim();
+    const team = String(row[2] || "").trim();
+    if (!TEAM_ORDER.includes(team) || !month) return;
+    monthsByTeam[team].add(month);
+  });
+
+  return monthsByTeam;
+}
+
+function getOrCreateMonthlyTeamEntriesSheet_(spreadsheet, team, dateOrMonth, tasks) {
+  const sheetName = getMonthlyTeamEntriesSheetName_(team, dateOrMonth);
+  let sheet = spreadsheet.getSheetByName(sheetName);
+  if (!sheet) sheet = spreadsheet.insertSheet(sheetName);
+  setupTeamEntriesSheetHeaders_(sheet, tasks);
+  return sheet;
+}
+
+function getOrCreateMonthlyTeamKraEntriesSheet_(spreadsheet, team, dateOrMonth, tasks) {
+  const sheetName = getMonthlyTeamKraEntriesSheetName_(team, dateOrMonth);
+  let sheet = spreadsheet.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(sheetName);
+    setupTeamKraEntriesSheetHeaders_(sheet, tasks);
+  }
+  return sheet;
+}
+
+function setupTeamEntriesSheetHeaders_(sheet, tasks) {
+  const headers = buildEntryHeaders_(tasks.length, (slot) => String(tasks[slot - 1][1]));
+  const currentHeaders = sheet.getLastRow() > 0
+    ? sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0]
+    : [];
+  const isCurrentLayout = headers.every((header, index) => currentHeaders[index] === header);
+  let changedLayout = false;
+
+  if (sheet.getLastRow() === 0 || sheet.getLastRow() === 1) {
+    sheet.clear();
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    changedLayout = true;
+  } else if (!isCurrentLayout) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    changedLayout = true;
+  }
+
+  if (changedLayout) {
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, headers.length)
+      .setBackground("#0f3f46")
+      .setFontColor("#ffffff")
+      .setFontWeight("bold");
+    sheet.autoResizeColumns(1, headers.length);
+  }
+}
+
+function setupTeamKraEntriesSheetHeaders_(sheet, tasks) {
+  const headers = buildKraEntryHeaders_(tasks.length, (slot) => String(tasks[slot - 1][1]));
+  const currentHeaders = sheet.getLastRow() > 0
+    ? sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), headers.length)).getValues()[0]
+    : [];
+  const isCurrentLayout = headers.every((header, index) => currentHeaders[index] === header);
+  let changedLayout = false;
+
+  if (sheet.getLastRow() === 0 || sheet.getLastRow() === 1) {
+    sheet.clear();
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    changedLayout = true;
+  } else if (!isCurrentLayout) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    changedLayout = true;
+  }
+
+  if (changedLayout) {
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, 1, headers.length)
+      .setBackground("#0f3f46")
+      .setFontColor("#ffffff")
+      .setFontWeight("bold");
+    sheet.autoResizeColumns(1, headers.length);
+  }
+}
+
+function backfillMonthlyTeamEntries_(spreadsheet, teamSheet, team, tasks, monthKey) {
+  const masterSheet = spreadsheet.getSheetByName(CONFIG.sheets.entries);
+  if (!masterSheet || masterSheet.getLastRow() <= 1) return;
+
+  const masterRows = masterSheet.getRange(2, 1, masterSheet.getLastRow() - 1, masterSheet.getLastColumn()).getValues();
+  const masterSummaryStartIndex = 4 + MAX_TASK_SLOTS * 2;
+  const rows = masterRows
+    .filter((row) => {
+      const workDate = normalizeDate_(row[1]);
+      return String(row[2] || "").trim() === team
+        && workDate
+        && Utilities.formatDate(workDate, Session.getScriptTimeZone(), "yyyy-MM") === monthKey;
+    })
+    .map((row) => {
+      const taskCells = [];
+      for (let index = 0; index < tasks.length; index += 1) {
+        taskCells.push(row[4 + index * 2] || "", row[5 + index * 2] || "");
+      }
+      return [
+        row[0],
+        row[1],
+        row[2],
+        row[3],
+        ...taskCells,
+        "",
+        "",
+        "",
+        "",
+        "",
+        row[masterSummaryStartIndex + 5] || "",
+        row[masterSummaryStartIndex + 6] || "",
+      ];
+    });
+
+  if (!rows.length) return;
+  teamSheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
+  rows.forEach((row, index) => {
+    const rowNumber = index + 2;
+    setEntryFormulas_(teamSheet, rowNumber, tasks, tasks.length);
+    formatEntryRow_(teamSheet, rowNumber, tasks.length);
+  });
+}
+
+function backfillMonthlyTeamKraEntries_(spreadsheet, teamSheet, team, tasks, monthKey) {
+  const masterSheet = spreadsheet.getSheetByName(CONFIG.sheets.kraEntries);
+  if (!masterSheet || masterSheet.getLastRow() <= 1) return;
+
+  const masterRows = masterSheet.getRange(2, 1, masterSheet.getLastRow() - 1, masterSheet.getLastColumn()).getValues();
+  const masterSummaryStartIndex = 4 + MAX_TASK_SLOTS * 2;
+  const rows = masterRows
+    .filter((row) => String(row[1] || "").trim() === monthKey && String(row[2] || "").trim() === team)
+    .map((row) => {
+      const taskCells = [];
+      for (let index = 0; index < tasks.length; index += 1) {
+        taskCells.push(row[4 + index * 2] || "", row[5 + index * 2] || "");
+      }
+      return [
+        row[0],
+        row[1],
+        row[2],
+        row[3],
+        ...taskCells,
+        ...row.slice(masterSummaryStartIndex, masterSummaryStartIndex + 18),
+      ];
+    });
+
+  if (!rows.length) return;
+  teamSheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
+  rows.forEach((row, index) => {
+    formatKraEntryRow_(teamSheet, index + 2, tasks.length);
+  });
+}
+
+function buildEntryHeaders_(taskSlotCount, getTaskLabel) {
+  const headers = ["Timestamp", "Work Date", "Team", "Agent"];
+  for (let index = 1; index <= taskSlotCount; index += 1) {
+    const label = getTaskLabel(index);
+    headers.push(`${label} Count`, `${label} Comment`);
+  }
+  return [
+    ...headers,
+    "Total Volume",
+    "Productive Minutes",
+    "Productive Hours",
+    "Utilization",
+    "Status",
+    "General Notes",
+    "Submitted By",
+  ];
+}
+
+function buildMasterEntryHeaders_() {
+  return buildEntryHeaders_(MAX_TASK_SLOTS, getEntryTaskHeaderLabel_);
+}
+
+function buildKraEntryHeaders_(taskSlotCount, getTaskLabel) {
+  const slotCount = taskSlotCount || MAX_TASK_SLOTS;
+  const labelGetter = getTaskLabel || getEntryTaskHeaderLabel_;
+  const headers = ["Timestamp", "Month", "Team", "Agent"];
+  for (let index = 1; index <= slotCount; index += 1) {
+    const label = labelGetter(index);
+    headers.push(`${label} Count`, `${label} Comment`);
+  }
+  return [
+    ...headers,
+    "Total Volume",
+    "KRA Production",
+    "Working Days",
+    "Target",
+    "Audit Count",
+    "Internal Fatal Errors",
+    "Internal Non-Fatal Errors",
+    "Coaching Fatal Errors",
+    "Coaching Non-Fatal Errors",
+    "Quality Score",
+    "Planned Shrinkage",
+    "Unplanned Shrinkage",
+    "Production 60%",
+    "Quality 30%",
+    "Shrinkage 10%",
+    "Overall Attainment",
+    "Actual Rating",
+    "Submitted By",
+  ];
+}
+
+function getEntryTaskHeaderLabel_(taskSlot) {
+  const names = [];
+  TEAM_ORDER.forEach((team) => {
+    const task = TEAM_CONFIGS[team] && TEAM_CONFIGS[team].tasks[taskSlot - 1];
+    const taskName = task ? String(task[1] || "").trim() : "";
+    if (taskName && !names.includes(taskName)) names.push(taskName);
+  });
+  return names.length ? names.join(" / ") : `Task ${taskSlot}`;
+}
+
+function getMonthlyTeamEntriesSheetName_(team, dateOrMonth) {
+  const monthLabel = getMonthSheetLabel_(dateOrMonth);
+  const cleaned = String(team)
+    .replace(/&/g, "and")
+    .replace(/[\\/?*[\]:]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${cleaned} - ${monthLabel}`.slice(0, 99);
+}
+
+function getMonthlyTeamKraEntriesSheetName_(team, dateOrMonth) {
+  const monthLabel = getMonthSheetLabel_(dateOrMonth);
+  const cleaned = String(team)
+    .replace(/&/g, "and")
+    .replace(/[\\/?*[\]:]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${cleaned} KRA - ${monthLabel}`.slice(0, 99);
+}
+
+function getMonthSheetLabel_(dateOrMonth) {
+  const value = String(dateOrMonth || "").trim();
+  const monthDate = /^\d{4}-\d{2}$/.test(value)
+    ? new Date(`${value}-01T00:00:00`)
+    : normalizeDate_(value) || new Date();
+  return Utilities.formatDate(monthDate, Session.getScriptTimeZone(), "MMMM yyyy");
+}
+
+function getTeamData_() {
+  const data = {};
+  TEAM_ORDER.forEach((team) => {
+    const agentProfiles = getAgentProfiles_(team, true);
+    data[team] = {
+      agents: agentProfiles.map((profile) => profile.name),
+      agentProfiles,
+      tasks: getTasks_(team, true).map((task) => ({
+        id: String(task[0]),
+        name: String(task[1]),
+        aht: Number(task[2]) || 0,
+      })),
+    };
+  });
+  return data;
+}
+
+function getCurrentUserAccess_() {
+  const email = getCurrentUserEmail_();
+  const isAdmin = isAdminEmail_(email);
+  const teamAccess = {};
+
+  TEAM_ORDER.forEach((team) => {
+    teamAccess[team] = {
+      canViewTeam: isAdmin,
+      canViewAllAgents: isAdmin,
+      agents: [],
+    };
+  });
+
+  if (!isAdmin && email) {
+    TEAM_ORDER.forEach((team) => {
+      getAgentProfiles_(team).forEach((profile) => {
+        if (String(profile.email || "").toLowerCase() !== email) return;
+        const isLead = isLeadAgentName_(profile.name) || /team lead/i.test(`${profile.designation} ${profile.process}`);
+        teamAccess[team].canViewTeam = true;
+        teamAccess[team].canViewAllAgents = isLead;
+        teamAccess[team].agents = isLead
+          ? getAgents_(team)
+          : [profile.name];
+      });
+    });
+  }
+
+  Object.keys(teamAccess).forEach((team) => {
+    if (teamAccess[team].canViewAllAgents) teamAccess[team].agents = getAgents_(team);
+  });
+
+  return {
+    email,
+    isAdmin,
+    teamAccess,
+  };
+}
+
+function getCurrentUserEmail_() {
+  try {
+    return String(Session.getActiveUser().getEmail() || "").trim().toLowerCase();
+  } catch (error) {
+    return "";
+  }
+}
+
+function isAdminEmail_(email) {
+  return ADMIN_EMAILS.includes(String(email || "").toLowerCase());
+}
+
+function getPublicAccess_(access) {
+  const teamAccess = {};
+  Object.keys(access.teamAccess).forEach((team) => {
+    if (!access.teamAccess[team].canViewTeam) return;
+    teamAccess[team] = {
+      canViewAllAgents: access.teamAccess[team].canViewAllAgents,
+      agents: access.teamAccess[team].agents,
+    };
+  });
+  return {
+    email: access.email,
+    isAdmin: access.isAdmin,
+    teamAccess,
+  };
+}
+
+function filterTeamDataForAccess_(teamData, access) {
+  const filtered = {};
+  TEAM_ORDER.forEach((team) => {
+    if (!canViewTeam_(access, team) || !teamData[team]) return;
+    const allowedAgents = new Set(access.teamAccess[team].agents);
+    const canViewAllAgents = access.teamAccess[team].canViewAllAgents;
+    const agentProfiles = canViewAllAgents
+      ? teamData[team].agentProfiles
+      : teamData[team].agentProfiles.filter((profile) => allowedAgents.has(profile.name));
+    filtered[team] = {
+      ...teamData[team],
+      agents: agentProfiles.map((profile) => profile.name),
+      agentProfiles,
+    };
+  });
+  return filtered;
+}
+
+function assertTeamAccess_(team, access) {
+  if (!canViewTeam_(access, team)) {
+    throw new Error("You do not have access to this team.");
+  }
+}
+
+function canViewTeam_(access, team) {
+  return Boolean(access && access.teamAccess && access.teamAccess[team] && access.teamAccess[team].canViewTeam);
+}
+
+function canViewAgent_(access, team, agent) {
+  if (!canViewTeam_(access, team)) return false;
+  const teamAccess = access.teamAccess[team];
+  return teamAccess.canViewAllAgents || teamAccess.agents.includes(agent);
+}
+
+function canEditKraEntries_(access, team) {
+  return Boolean(
+    access
+    && access.teamAccess
+    && access.teamAccess[team]
+    && access.teamAccess[team].canViewAllAgents
+  );
+}
+
+function getCachedTeamData_() {
+  const cache = CacheService.getScriptCache();
+  const key = `teamData:${CONFIG.schemaVersion}`;
+  const cached = cache.get(key);
+  if (cached) return JSON.parse(cached);
+
+  const data = getTeamData_();
+  cache.put(key, JSON.stringify(data), CONFIG.cacheSeconds);
+  return data;
+}
+
+function clearPortalCache_() {
+  CacheService.getScriptCache().remove(`teamData:${CONFIG.schemaVersion}`);
+  bumpKraCacheVersion_();
+}
+
+function getKraDashboardCacheKey_(month, team, access) {
+  return [
+    "kraDashboard",
+    CONFIG.schemaVersion,
+    getKraCacheVersion_(),
+    String(access && access.email || "anonymous").toLowerCase(),
+    normalizeCacheKeyPart_(team),
+    normalizeCacheKeyPart_(month),
+  ].join(":");
+}
+
+function getKraCacheVersion_() {
+  return PropertiesService.getScriptProperties().getProperty("kraCacheVersion") || "1";
+}
+
+function bumpKraCacheVersion_() {
+  PropertiesService.getScriptProperties().setProperty("kraCacheVersion", String(Date.now()));
+}
+
+function normalizeCacheKeyPart_(value) {
+  return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 60);
+}
+
+function getAgents_(team) {
+  const cachedTeamData = getCachedTeamData_();
+  if (cachedTeamData[team] && cachedTeamData[team].agents) return cachedTeamData[team].agents;
+  return getAgentProfiles_(team).map((profile) => profile.name);
+}
+
+function getAgentProfiles_(team, skipCache) {
+  if (!skipCache) {
+    const cachedTeamData = getCachedTeamData_();
+    if (cachedTeamData[team] && cachedTeamData[team].agentProfiles) return cachedTeamData[team].agentProfiles;
+  }
+  const sheet = getWorkbook_().getSheetByName(CONFIG.sheets.agents);
+  const values = sheet.getRange(2, 1, Math.max(sheet.getLastRow() - 1, 1), Math.max(sheet.getLastColumn(), 7)).getValues();
+  const profiles = values
+    .filter((row) => String(row[0]).trim() === team)
+    .map((row) => {
+      const name = getCanonicalAgentName_(team, String(row[1]).trim());
+      if (!name) return null;
+      const seededProfile = getSeedProfile_(team, name);
+      return {
+        name,
+        employeeId: String(row[2] || seededProfile.employeeId || "").trim(),
+        email: String(row[3] || seededProfile.email || "").trim(),
+        designation: String(row[4] || seededProfile.designation || "").trim(),
+        process: String(row[5] || seededProfile.process || "Agents").trim(),
+        lead: String(row[6] || seededProfile.lead || "").trim(),
+      };
+    })
+    .filter(Boolean);
+  const seen = new Set();
+  return profiles.filter((profile) => {
+    const key = profile.name;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function getTasks_(team, skipCache) {
+  if (!skipCache) {
+    const cachedTeamData = getCachedTeamData_();
+    if (cachedTeamData[team] && cachedTeamData[team].tasks) {
+      return cachedTeamData[team].tasks.map((task) => [task.id, task.name, task.aht]);
+    }
+  }
+  const sheet = getWorkbook_().getSheetByName(CONFIG.sheets.tasks);
+  const values = sheet.getRange(2, 1, Math.max(sheet.getLastRow() - 1, 1), 4).getValues();
+  return values
+    .filter((row) => String(row[0]).trim() === team && row[1] && row[2])
+    .map((row) => [row[1], row[2], row[3]]);
+}
+
+function validatePayload_(payload) {
+  if (!payload) throw new Error("Missing submission.");
+  if (!payload.date) throw new Error("Please select a date.");
+  if (!payload.team) throw new Error("Please select a team.");
+  if (!TEAM_ORDER.includes(payload.team)) throw new Error("Selected team is not configured.");
+  if (!payload.agent) throw new Error("Please select an agent.");
+  if (!payload.counts) throw new Error("Please enter at least one task count.");
+
+  const access = getCurrentUserAccess_();
+  assertTeamAccess_(payload.team, access);
+  if (!canViewAgent_(access, payload.team, payload.agent)) {
+    throw new Error("You do not have access to submit numbers for this agent.");
+  }
+
+  const agents = getAgents_(payload.team);
+  if (!agents.includes(payload.agent)) throw new Error("Selected agent is not in this team's Agents list.");
+
+  const hasInvalidCount = Object.keys(payload.counts).some((taskId) => {
+    const value = payload.counts[taskId];
+    return value !== "" && (Number(value) < 0 || !Number.isFinite(Number(value)));
+  });
+  if (hasInvalidCount) throw new Error("Task counts must be zero or positive numbers.");
+}
+
+function normalizeBulkEntry_(entry, team, month, agents, tasks, rowNumber, submittedBy) {
+  const date = getDateKey_(entry && entry.date);
+  if (!date) throw new Error(`Row ${rowNumber}: missing or invalid date.`);
+  if (date.slice(0, 7) !== month) throw new Error(`Row ${rowNumber}: date must be within ${month}.`);
+
+  const agent = getCanonicalAgentName_(team, String(entry && entry.agent || "").trim());
+  if (!agent || !agents.includes(agent)) throw new Error(`Row ${rowNumber}: agent is not configured for ${team}.`);
+
+  const counts = {};
+  const comments = {};
+  let hasData = false;
+  tasks.forEach((task) => {
+    const rawCount = entry && entry.counts ? entry.counts[task[0]] : "";
+    const count = rawCount === "" || rawCount == null ? 0 : Number(rawCount);
+    if (!Number.isFinite(count) || count < 0) throw new Error(`Row ${rowNumber}: ${task[1]} count must be zero or positive.`);
+    const comment = String((entry && entry.comments && entry.comments[task[0]]) || "").trim();
+    counts[task[0]] = count;
+    comments[task[0]] = comment;
+    if (count || comment) hasData = true;
+  });
+  const notes = String(entry && entry.notes || "").trim();
+  if (!hasData && !notes) throw new Error(`Row ${rowNumber}: enter at least one task count, comment, or note.`);
+
+  return {
+    date,
+    agent,
+    counts,
+    comments,
+    notes,
+    submittedBy: String(entry && entry.submittedBy || submittedBy || "").trim(),
+  };
+}
+
+function parseBulkXlsxEntries_(xlsxFile, tasks, month) {
+  const rows = parseXlsxFirstSheetRows_(xlsxFile);
+  return parseBulkRowsToEntries_(rows, tasks, month);
+}
+
+function parseBulkRowsToEntries_(rows, tasks, month) {
+  const cleanRows = rows.filter((row) => row.some((cell) => String(cell == null ? "" : cell).trim()));
+  if (cleanRows.length < 2) throw new Error("The Excel file needs a header row and at least one data row.");
+
+  const headerIndex = cleanRows.findIndex((row) => {
+    const headers = row.map(normalizeBulkHeader_);
+    return findBulkHeaderIndex_(headers, ["agent", "agentname", "employeename"]) >= 0
+      && (
+        findBulkHeaderIndex_(headers, ["workdate", "date"]) >= 0
+        || findBulkHeaderIndex_(headers, ["category", "task", "taskname"]) >= 0
+      );
+  });
+  if (headerIndex < 0) throw new Error("Could not find a header row with Agent and Work Date or Category.");
+
+  const headers = cleanRows[headerIndex].map(normalizeBulkHeader_);
+  const dateIndex = findBulkHeaderIndex_(headers, ["workdate", "date"]);
+  const agentIndex = findBulkHeaderIndex_(headers, ["agent", "agentname", "employeename"]);
+  const categoryIndex = findBulkHeaderIndex_(headers, ["category", "task", "taskname"]);
+  if (dateIndex < 0 && categoryIndex >= 0) {
+    return parseMatrixBulkRowsToEntries_(cleanRows, headerIndex, tasks, month, agentIndex, categoryIndex);
+  }
+  if (dateIndex < 0 || agentIndex < 0) throw new Error("Headers must include Work Date and Agent.");
+
+  const notesIndex = findBulkHeaderIndex_(headers, ["generalnotes", "notes"]);
+  const submittedByIndex = findBulkHeaderIndex_(headers, ["submittedby"]);
+  const taskColumns = tasks.map((task) => ({
+    task,
+    countIndex: findBulkHeaderIndex_(headers, [
+      normalizeBulkHeader_(task[1]),
+      normalizeBulkHeader_(`${task[1]} Count`),
+      normalizeBulkHeader_(task[0]),
+      normalizeBulkHeader_(`${task[0]} Count`),
+    ]),
+    commentIndex: findBulkHeaderIndex_(headers, [
+      normalizeBulkHeader_(`${task[1]} Comment`),
+      normalizeBulkHeader_(`${task[0]} Comment`),
+    ]),
+  }));
+
+  const entries = [];
+  cleanRows.slice(headerIndex + 1).forEach((row, rowIndex) => {
+    const date = parseBulkUploadDate_(row[dateIndex]);
+    const agent = String(row[agentIndex] || "").trim();
+    if (!date && !agent) return;
+    if (!date || !agent) throw new Error(`Row ${headerIndex + rowIndex + 2}: Work Date and Agent are required.`);
+
+    const counts = {};
+    const comments = {};
+    let hasData = false;
+    taskColumns.forEach(({ task, countIndex, commentIndex }) => {
+      const rawCount = countIndex >= 0 ? String(row[countIndex] == null ? "" : row[countIndex]).trim() : "";
+      const rawComment = commentIndex >= 0 ? String(row[commentIndex] == null ? "" : row[commentIndex]).trim() : "";
+      const count = rawCount === "" ? "" : Number(rawCount.replace(/,/g, ""));
+      if (count !== "" && (!Number.isFinite(count) || count < 0)) {
+        throw new Error(`Row ${headerIndex + rowIndex + 2}: ${task[1]} count must be zero or positive.`);
+      }
+      counts[task[0]] = count === "" ? "" : count;
+      comments[task[0]] = rawComment;
+      if (count || rawComment) hasData = true;
+    });
+    const notes = notesIndex >= 0 ? String(row[notesIndex] || "").trim() : "";
+    if (!hasData && !notes) return;
+    entries.push({
+      date,
+      agent,
+      counts,
+      comments,
+      notes,
+      submittedBy: submittedByIndex >= 0 ? String(row[submittedByIndex] || "").trim() : "",
+    });
+  });
+
+  if (!entries.length) throw new Error("No rows with task counts or notes were found.");
+  return entries;
+}
+
+function parseMatrixBulkRowsToEntries_(rows, headerIndex, tasks, month, agentIndex, categoryIndex) {
+  const headers = rows[headerIndex];
+  const taskByName = {};
+  tasks.forEach((task) => {
+    taskByName[normalizeBulkHeader_(task[1])] = task;
+    taskByName[normalizeBulkHeader_(task[0])] = task;
+  });
+  const dateColumns = headers.map((header, index) => ({
+    index,
+    date: parseBulkMatrixDate_(header, month),
+  })).filter((item) => item.date);
+  if (!dateColumns.length) throw new Error("No date columns were found in the agent-wise upload sheet.");
+
+  const byKey = {};
+  let currentAgent = "";
+  rows.slice(headerIndex + 1).forEach((row) => {
+    const agentCell = String(row[agentIndex] || "").trim();
+    if (agentCell && !/\btotal\b/i.test(agentCell)) currentAgent = agentCell;
+    const category = String(row[categoryIndex] || "").trim();
+    if (!currentAgent || !category || /^all$/i.test(category) || /\btotal\b/i.test(agentCell)) return;
+    const task = taskByName[normalizeBulkHeader_(category)];
+    if (!task) return;
+
+    dateColumns.forEach(({ index, date }) => {
+      const rawValue = row[index];
+      const count = rawValue === "" || rawValue == null ? 0 : Number(String(rawValue).replace(/,/g, ""));
+      if (!Number.isFinite(count) || count < 0) return;
+      if (!count) return;
+      const key = `${date}||${currentAgent}`;
+      if (!byKey[key]) {
+        byKey[key] = {
+          date,
+          agent: currentAgent,
+          counts: {},
+          comments: {},
+          notes: "",
+          submittedBy: "",
+        };
+      }
+      byKey[key].counts[task[0]] = (Number(byKey[key].counts[task[0]]) || 0) + count;
+    });
+  });
+
+  const entries = Object.keys(byKey).sort().map((key) => byKey[key]);
+  if (!entries.length) throw new Error("No task numbers were found in the agent-wise upload sheet.");
+  return entries;
+}
+
+function parseBulkMatrixDate_(value, month) {
+  const monthParts = /^(\d{4})-(\d{2})$/.exec(String(month || ""));
+  if (!monthParts) return parseBulkUploadDate_(value);
+  const year = Number(monthParts[1]);
+  const expectedMonth = Number(monthParts[2]);
+  const text = String(value == null ? "" : value).trim();
+  const shortDate = /^(\d{1,2})[/-](\d{1,2})$/.exec(text);
+  if (shortDate) {
+    const first = Number(shortDate[1]);
+    const second = Number(shortDate[2]);
+    const resolvedMonth = first > 12 ? expectedMonth : first;
+    const day = first > 12 ? first : second;
+    if (resolvedMonth !== expectedMonth) return "";
+    return `${year}-${String(resolvedMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  const parsed = parseBulkUploadDate_(value);
+  return parsed && parsed.slice(0, 7) === month ? parsed : "";
+}
+
+function parseXlsxFirstSheetRows_(xlsxFile) {
+  const data = String(xlsxFile && xlsxFile.data || "").replace(/^data:.*?;base64,/, "");
+  if (!data) throw new Error("The Excel file could not be read.");
+  const bytes = Utilities.base64Decode(data);
+  const blob = Utilities.newBlob(bytes, "application/zip", xlsxFile.name || "upload.xlsx");
+  const files = {};
+  Utilities.unzip(blob).forEach((file) => {
+    files[file.getName()] = file.getDataAsString();
+  });
+
+  const sharedStrings = parseXlsxSharedStrings_(files["xl/sharedStrings.xml"] || "");
+  const sheetPath = getFirstXlsxSheetPath_(files) || "xl/worksheets/sheet1.xml";
+  const sheetXml = files[sheetPath];
+  if (!sheetXml) throw new Error("Could not find the first worksheet in the Excel file.");
+
+  const rows = [];
+  const rowMatches = sheetXml.match(/<row\b[\s\S]*?<\/row>/g) || [];
+  rowMatches.forEach((rowXml) => {
+    const row = [];
+    const cellMatches = rowXml.match(/<c\b[\s\S]*?<\/c>/g) || [];
+    cellMatches.forEach((cellXml) => {
+      const ref = getXmlAttribute_(cellXml, "r") || "";
+      const type = getXmlAttribute_(cellXml, "t") || "";
+      const columnIndex = getXlsxColumnIndex_(ref);
+      row[columnIndex] = getXlsxCellValue_(cellXml, type, sharedStrings);
+    });
+    rows.push(row.map((cell) => cell == null ? "" : cell));
+  });
+  return rows;
+}
+
+function getFirstXlsxSheetPath_(files) {
+  const workbookXml = files["xl/workbook.xml"];
+  const relsXml = files["xl/_rels/workbook.xml.rels"];
+  if (!workbookXml || !relsXml) return "";
+  const firstSheet = /<sheet\b[^>]*r:id="([^"]+)"/.exec(workbookXml);
+  if (!firstSheet) return "";
+  const relId = firstSheet[1];
+  const relMatch = new RegExp(`<Relationship\\b[^>]*Id="${relId}"[^>]*Target="([^"]+)"`).exec(relsXml);
+  if (!relMatch) return "";
+  const target = relMatch[1].replace(/^\/+/, "");
+  return target.indexOf("xl/") === 0 ? target : `xl/${target}`;
+}
+
+function parseXlsxSharedStrings_(xml) {
+  if (!xml) return [];
+  const strings = [];
+  const matches = xml.match(/<si\b[\s\S]*?<\/si>/g) || [];
+  matches.forEach((item) => {
+    const textParts = [];
+    const tMatches = item.match(/<t\b[^>]*>[\s\S]*?<\/t>/g) || [];
+    tMatches.forEach((part) => {
+      textParts.push(decodeXml_(part.replace(/<[^>]+>/g, "")));
+    });
+    strings.push(textParts.join(""));
+  });
+  return strings;
+}
+
+function getXlsxCellValue_(cellXml, type, sharedStrings) {
+  if (type === "inlineStr") {
+    const inlineMatch = /<t\b[^>]*>([\s\S]*?)<\/t>/.exec(cellXml);
+    return inlineMatch ? decodeXml_(inlineMatch[1]) : "";
+  }
+  const valueMatch = /<v\b[^>]*>([\s\S]*?)<\/v>/.exec(cellXml);
+  if (!valueMatch) return "";
+  const value = decodeXml_(valueMatch[1]);
+  if (type === "s") return sharedStrings[Number(value)] || "";
+  return value;
+}
+
+function getXmlAttribute_(xml, attribute) {
+  const match = new RegExp(`${attribute}="([^"]*)"`).exec(xml);
+  return match ? match[1] : "";
+}
+
+function getXlsxColumnIndex_(cellRef) {
+  const letters = String(cellRef || "").replace(/[^A-Z]/gi, "").toUpperCase();
+  let number = 0;
+  for (let index = 0; index < letters.length; index += 1) {
+    number = number * 26 + letters.charCodeAt(index) - 64;
+  }
+  return Math.max(0, number - 1);
+}
+
+function normalizeBulkHeader_(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function findBulkHeaderIndex_(headers, candidates) {
+  return headers.findIndex((header) => candidates.includes(header));
+}
+
+function parseBulkUploadDate_(value) {
+  if (value instanceof Date) return getDateKey_(value);
+  const text = String(value == null ? "" : value).trim();
+  if (!text) return "";
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text);
+  if (iso) return `${iso[1]}-${String(iso[2]).padStart(2, "0")}-${String(iso[3]).padStart(2, "0")}`;
+  const slash = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/.exec(text);
+  if (slash) {
+    let first = Number(slash[1]);
+    let second = Number(slash[2]);
+    let year = Number(slash[3]);
+    if (year < 100) year += 2000;
+    const day = first > 12 ? first : second > 12 ? second : first;
+    const month = first > 12 ? second : second > 12 ? first : second;
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+  if (/^\d+(\.\d+)?$/.test(text)) {
+    const serialDate = new Date(Math.round((Number(text) - 25569) * 86400 * 1000));
+    return Number.isNaN(serialDate.getTime()) ? "" : getDateKey_(serialDate);
+  }
+  const parsed = normalizeDate_(text);
+  return parsed ? getDateKey_(parsed) : "";
+}
+
+function decodeXml_(value) {
+  return String(value || "")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+function buildEntryRowIndex_(sheet) {
+  const index = {};
+  if (!sheet || sheet.getLastRow() <= 1) return index;
+  const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, Math.min(4, sheet.getLastColumn())).getValues();
+  rows.forEach((row, offset) => {
+    const key = getEntryKey_(row[1], String(row[2] || "").trim(), String(row[3] || "").trim());
+    if (key && !index[key]) index[key] = offset + 2;
+  });
+  return index;
+}
+
+function getEntryKey_(dateValue, team, agent) {
+  const dateKey = getDateKey_(dateValue);
+  const canonicalAgent = getCanonicalAgentName_(team, String(agent || "").trim());
+  return dateKey && team && canonicalAgent ? `${dateKey}||${team}||${canonicalAgent}` : "";
+}
+
+function getDateKey_(value) {
+  const date = normalizeDate_(value);
+  return date ? Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM-dd") : "";
+}
+
+function appendEntryRows_(sheet, rows, taskSlotCount) {
+  if (!rows.length) return;
+  const startRow = sheet.getLastRow() + 1;
+  sheet.getRange(startRow, 1, rows.length, rows[0].length).setValues(rows);
+  formatEntryRowsRange_(sheet, startRow, rows.length, taskSlotCount);
+}
+
+function formatEntryRowsRange_(sheet, startRow, rowCount, taskSlotCount) {
+  if (!rowCount) return;
+  const summaryStart = 5 + taskSlotCount * 2;
+  sheet.getRange(startRow, 1, rowCount, 1).setNumberFormat("yyyy-mm-dd hh:mm");
+  sheet.getRange(startRow, 2, rowCount, 1).setNumberFormat("yyyy-mm-dd");
+  for (let index = 0; index < taskSlotCount; index += 1) {
+    sheet.getRange(startRow, 5 + index * 2, rowCount, 1).setNumberFormat("0");
+  }
+  sheet.getRange(startRow, summaryStart, rowCount, 1).setNumberFormat("0");
+  sheet.getRange(startRow, summaryStart + 1, rowCount, 2).setNumberFormat("0.00");
+  sheet.getRange(startRow, summaryStart + 3, rowCount, 1).setNumberFormat("0%");
+}
+
+function upsertBulkKraEntries_(spreadsheet, month, team, tasks, kraCountsByAgent, submittedBy) {
+  const agents = Object.keys(kraCountsByAgent);
+  if (!agents.length) return 0;
+  const masterSheet = spreadsheet.getSheetByName(CONFIG.sheets.kraEntries);
+  const teamSheet = getOrCreateMonthlyTeamKraEntriesSheet_(spreadsheet, team, month, tasks);
+  let updated = 0;
+
+  agents.forEach((agent) => {
+    const counts = kraCountsByAgent[agent] || {};
+    const taskCounts = tasks.map((task) => Number(counts[task[0]]) || 0);
+    const taskComments = tasks.map(() => "");
+    const totalVolume = taskCounts.reduce((sum, value) => sum + value, 0);
+    if (!totalVolume) return;
+
+    const existingRow = findKraEntryRow_(masterSheet, month, team, agent);
+    const existingMetrics = existingRow
+      ? readKraMetricsFromRow_(masterSheet.getRange(existingRow, 1, 1, masterSheet.getLastColumn()).getValues()[0], getDefaultKraMetrics_(month))
+      : getDefaultKraMetrics_(month);
+    const metrics = normalizeKraMetrics_(existingMetrics, month);
+    const totalProduction = taskCounts.reduce((sum, value, index) => sum + value * getKraWeight_(tasks[index]), 0);
+    const summary = summarizeKraAgent_({
+      agent,
+      workingDays: metrics.workingDays,
+      target: metrics.target,
+      totalProduction,
+      totalVolume,
+      qualityScore: metrics.qualityScore,
+      auditCount: metrics.auditCount,
+      internalFatalErrors: metrics.internalFatalErrors,
+      internalNonFatalErrors: metrics.internalNonFatalErrors,
+      coachingFatalErrors: metrics.coachingFatalErrors,
+      coachingNonFatalErrors: metrics.coachingNonFatalErrors,
+      plannedShrinkage: metrics.plannedShrinkage,
+      unplannedShrinkage: metrics.unplannedShrinkage,
+    });
+
+    const payload = { month, team, agent, submittedBy };
+    const masterRow = buildKraEntryRow_(payload, taskCounts, taskComments, totalVolume, totalProduction, metrics, summary, MAX_TASK_SLOTS);
+    if (existingRow) {
+      masterSheet.getRange(existingRow, 1, 1, masterRow.length).setValues([masterRow]);
+      formatKraEntryRow_(masterSheet, existingRow, MAX_TASK_SLOTS);
+    } else {
+      masterSheet.appendRow(masterRow);
+      formatKraEntryRow_(masterSheet, masterSheet.getLastRow(), MAX_TASK_SLOTS);
+    }
+
+    const teamRow = buildKraEntryRow_(payload, taskCounts, taskComments, totalVolume, totalProduction, metrics, summary, tasks.length);
+    const teamRowNumber = findKraEntryRow_(teamSheet, month, team, agent);
+    if (teamRowNumber) {
+      teamSheet.getRange(teamRowNumber, 1, 1, teamRow.length).setValues([teamRow]);
+      formatKraEntryRow_(teamSheet, teamRowNumber, tasks.length);
+    } else {
+      teamSheet.appendRow(teamRow);
+      formatKraEntryRow_(teamSheet, teamSheet.getLastRow(), tasks.length);
+    }
+    updated += 1;
+  });
+
+  return updated;
+}
+
+function formatEntryRow_(sheet, rowNumber, taskSlotCount) {
+  const summaryStart = 5 + taskSlotCount * 2;
+  const lastColumn = sheet.getLastColumn();
+  sheet.getRange(rowNumber, 1).setNumberFormat("yyyy-mm-dd hh:mm");
+  sheet.getRange(rowNumber, 2).setNumberFormat("yyyy-mm-dd");
+  for (let index = 0; index < taskSlotCount; index += 1) {
+    sheet.getRange(rowNumber, 5 + index * 2).setNumberFormat("0");
+  }
+  sheet.getRange(rowNumber, summaryStart).setNumberFormat("0");
+  sheet.getRange(rowNumber, summaryStart + 1, 1, 2).setNumberFormat("0.00");
+  sheet.getRange(rowNumber, summaryStart + 3).setNumberFormat("0%");
+  sheet.getRange(rowNumber, 1, 1, lastColumn).setBorder(true, true, true, true, false, false, "#dce8eb", SpreadsheetApp.BorderStyle.SOLID);
+}
+
+function formatKraEntryRow_(sheet, rowNumber, taskSlotCount) {
+  const slotCount = taskSlotCount || MAX_TASK_SLOTS;
+  const summaryStart = 5 + slotCount * 2;
+  const lastColumn = sheet.getLastColumn();
+  sheet.getRange(rowNumber, 1).setNumberFormat("yyyy-mm-dd hh:mm");
+  sheet.getRange(rowNumber, 2).setNumberFormat("@");
+  for (let index = 0; index < slotCount; index += 1) {
+    sheet.getRange(rowNumber, 5 + index * 2).setNumberFormat("0");
+  }
+  sheet.getRange(rowNumber, summaryStart).setNumberFormat("0");
+  sheet.getRange(rowNumber, summaryStart + 1).setNumberFormat("0.00");
+  sheet.getRange(rowNumber, summaryStart + 2, 1, 7).setNumberFormat("0.00");
+  sheet.getRange(rowNumber, summaryStart + 9).setNumberFormat("0.00%");
+  sheet.getRange(rowNumber, summaryStart + 10, 1, 2).setNumberFormat("0.00");
+  sheet.getRange(rowNumber, summaryStart + 12, 1, 4).setNumberFormat("0.00%");
+  sheet.getRange(rowNumber, summaryStart + 16).setNumberFormat("0.00");
+  sheet.getRange(rowNumber, 1, 1, lastColumn).setBorder(true, true, true, true, false, false, "#dce8eb", SpreadsheetApp.BorderStyle.SOLID);
+}
+
+function findKraEntryRow_(sheet, month, team, agent) {
+  if (!sheet || sheet.getLastRow() <= 1) return 0;
+  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues();
+  const canonicalAgent = getCanonicalAgentName_(team, agent);
+  for (let index = 0; index < values.length; index += 1) {
+    const rowMonth = String(values[index][1] || "").trim();
+    const rowTeam = String(values[index][2] || "").trim();
+    const rowAgent = getCanonicalAgentName_(rowTeam, String(values[index][3] || "").trim());
+    if (rowMonth === month && rowTeam === team && rowAgent === canonicalAgent) return index + 2;
+  }
+  return 0;
+}
+
+function setEntryFormulas_(sheet, rowNumber, tasks, taskSlotCount) {
+  const countCells = [];
+  const weightedParts = [];
+  for (let index = 0; index < taskSlotCount; index += 1) {
+    const task = tasks[index];
+    const countColumn = columnToLetter_(5 + index * 2);
+    const aht = task ? Number(task[2]) || 0 : 0;
+    countCells.push(`${countColumn}${rowNumber}`);
+    weightedParts.push(`${countColumn}${rowNumber}*${aht}`);
+  }
+
+  const summaryStart = 5 + taskSlotCount * 2;
+  const totalColumn = columnToLetter_(summaryStart);
+  const minutesColumn = columnToLetter_(summaryStart + 1);
+  const hoursColumn = columnToLetter_(summaryStart + 2);
+  const utilizationColumn = columnToLetter_(summaryStart + 3);
+
+  sheet.getRange(rowNumber, summaryStart).setFormula(`=SUM(${countCells.join(",")})`);
+  sheet.getRange(rowNumber, summaryStart + 1).setFormula(`=${weightedParts.length ? weightedParts.join("+") : "0"}`);
+  sheet.getRange(rowNumber, summaryStart + 2).setFormula(`=${minutesColumn}${rowNumber}/60`);
+  sheet.getRange(rowNumber, summaryStart + 3).setFormula(`=${hoursColumn}${rowNumber}/${CONFIG.workdayHours}`);
+  sheet.getRange(rowNumber, summaryStart + 4).setFormula(`=IF(${totalColumn}${rowNumber}=0,"No volume",IF(${utilizationColumn}${rowNumber}>=${CONFIG.targetUtilization},"On target",IF(${utilizationColumn}${rowNumber}>=${CONFIG.targetUtilization * 0.75},"Watch","Below target")))`);
+}
+
+function getSeedAgents_() {
+  const rows = AGENT_PROFILES.map((row) => {
+    const paddedRow = row.slice();
+    while (paddedRow.length < 7) paddedRow.push("");
+    return paddedRow;
+  });
+  return rows.length ? rows : [["", ""]];
+}
+
+function ensureSeedAgents_(sheet) {
+  const existingValues = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 7).getValues()
+    : [];
+  const existingKeys = new Set(existingValues.map((row) => `${String(row[0]).trim()}||${String(row[1]).trim()}`));
+  const missingRows = getSeedAgents_().filter((row) => {
+    const key = `${String(row[0]).trim()}||${String(row[1]).trim()}`;
+    return row[0] && row[1] && !existingKeys.has(key);
+  });
+
+  if (missingRows.length) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, missingRows.length, 7).setValues(missingRows);
+  }
+}
+
+function applyAgentRenames_(sheet) {
+  if (sheet.getLastRow() <= 1) return;
+  const range = sheet.getRange(2, 1, sheet.getLastRow() - 1, Math.max(sheet.getLastColumn(), 7));
+  const values = range.getValues();
+  let changed = false;
+  const updatedValues = values.map((row) => {
+    const team = String(row[0]).trim();
+    const agent = String(row[1]).trim();
+    const canonical = getCanonicalAgentName_(team, agent);
+    if (canonical !== agent) changed = true;
+    const seededProfile = getSeedProfile_(team, canonical);
+    const updatedRow = row.slice();
+    updatedRow[1] = canonical || row[1];
+    if (seededProfile.employeeId && updatedRow[2] !== seededProfile.employeeId) { updatedRow[2] = seededProfile.employeeId; changed = true; }
+    if (seededProfile.email && updatedRow[3] !== seededProfile.email) { updatedRow[3] = seededProfile.email; changed = true; }
+    if (seededProfile.designation && updatedRow[4] !== seededProfile.designation) { updatedRow[4] = seededProfile.designation; changed = true; }
+    if (seededProfile.process && updatedRow[5] !== seededProfile.process) { updatedRow[5] = seededProfile.process; changed = true; }
+    if (seededProfile.lead && updatedRow[6] !== seededProfile.lead) { updatedRow[6] = seededProfile.lead; changed = true; }
+    return updatedRow;
+  });
+  if (changed) range.setValues(updatedValues);
+}
+
+function getSeedProfile_(team, agent) {
+  const row = AGENT_PROFILES.find((profile) => profile[0] === team && profile[1] === agent);
+  return row ? {
+    employeeId: row[2],
+    email: row[3],
+    designation: row[4],
+    process: row[5],
+    lead: row[6] || "",
+  } : {};
+}
+
+function getSeedTasks_() {
+  const rows = [];
+  TEAM_ORDER.forEach((team) => {
+    TEAM_CONFIGS[team].tasks.forEach((task) => {
+      rows.push([team, task[0], task[1], task[2]]);
+    });
+  });
+  return rows.length ? rows : [["", "", "", ""]];
+}
+
+function syncSeedTasks_(sheet) {
+  const existingValues = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 4).getValues()
+    : [];
+  const seedRows = getSeedTasks_().filter((row) => row[0] && row[1]);
+  const configuredTeams = new Set(TEAM_ORDER);
+  const customRows = existingValues.filter((row) => {
+    const team = String(row[0] || "").trim();
+    return team && !configuredTeams.has(team);
+  });
+  const rows = [...customRows, ...seedRows];
+  if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, Math.max(sheet.getLastColumn(), 4)).clearContent();
+  if (rows.length) sheet.getRange(2, 1, rows.length, 4).setValues(rows);
+}
+
+function getHeaderMap_(sheet) {
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const map = {};
+  headers.forEach((header, index) => {
+    if (header) map[String(header)] = index;
+  });
+  return map;
+}
+
+function normalizeDate_(value) {
+  if (!value) return null;
+  if (value instanceof Date) return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value).trim());
+  if (isoMatch) return new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+}
+
+function datesMatch_(left, right) {
+  return left && right
+    && left.getFullYear() === right.getFullYear()
+    && left.getMonth() === right.getMonth()
+    && left.getDate() === right.getDate();
+}
+
+function countWeekdays_(startDate, endDate) {
+  let count = 0;
+  const cursor = new Date(startDate);
+  while (cursor < endDate) {
+    const day = cursor.getDay();
+    if (day !== 0 && day !== 6) count += 1;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
+}
+
+function getCanonicalAgentName_(team, agent) {
+  return AGENT_RENAMES[`${team}||${agent}`] || agent;
+}
+
+function columnToLetter_(columnNumber) {
+  let letter = "";
+  let number = columnNumber;
+  while (number > 0) {
+    const remainder = (number - 1) % 26;
+    letter = String.fromCharCode(65 + remainder) + letter;
+    number = Math.floor((number - 1) / 26);
+  }
+  return letter;
+}
