@@ -852,7 +852,7 @@
 
     <script>
       const COLORS = ["#22787f","#2e6f9e","#1b7f4f","#b7791f","#7c5cc4","#d05858","#4f8f6d","#5e7ce2","#a86834","#5c9ead","#7a6f59","#4a9f8f","#9467bd"];
-      const TEAM_BUTTON_COLORS = ["#065f3f","#263b7a"];
+      const TEAM_BUTTON_COLORS = ["#065f3f","#263b7a","#6d3f13"];
       const KRA_TARGET_PER_DAY = 45;
       const TEAMS = ["FDR CBP Team", "FDR Uncleared & ASTNC Team"];
 
@@ -924,7 +924,7 @@
             task("Task 23","FDR- WebPay/Case Email Audit",3), task("Task 24","Office Hours",1),
             task("Task 25","Other Value added Tasks",1),
           ],
-        }
+        },
       };
 
       const SAMPLE_UTIL = {
@@ -953,10 +953,6 @@
         ],
         "FDR Uncleared & ASTNC Team": [
           { agent: "Abhimanyu Gupta", target: 990, totalVolume: 142, totalProduction: 1030, auditCount: 9, qualityScore: 0.97, plannedShrinkage: 1, unplannedShrinkage: 0, productionContribution: 0.62, qualityContribution: 0.24, shrinkageContribution: 0.1, overallAttainment: 0.96, actualRating: 3.2, status: "Watch" },
-        ],
-        "JGW Team": [
-          { agent: "Sachin Sharma", target: 990, totalVolume: 210, totalProduction: 1080, auditCount: 14, qualityScore: 1.0, plannedShrinkage: 0, unplannedShrinkage: 0, productionContribution: 0.65, qualityContribution: 0.3, shrinkageContribution: 0.1, overallAttainment: 1.05, actualRating: 3.9, status: "On target" },
-          { agent: "Nitin Mehra", target: 990, totalVolume: 250, totalProduction: 940, auditCount: 8, qualityScore: 0.95, plannedShrinkage: 3, unplannedShrinkage: 1, productionContribution: 0.57, qualityContribution: 0.18, shrinkageContribution: 0, overallAttainment: 0.75, actualRating: 1.0, status: "Below target" },
         ],
       };
 
