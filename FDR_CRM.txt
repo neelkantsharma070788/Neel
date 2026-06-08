@@ -1,0 +1,268 @@
+========================================================
+  FDR CRM — Agent Profiles, Tasks & KRA Configuration
+  Source: Code.gs + Index.html
+  Generated: 2026-06-08
+========================================================
+
+----------------------------------------------------------------
+1. TEAM ORDER (all three teams for reference)
+----------------------------------------------------------------
+const TEAM_ORDER = [
+  "FDR CBP Team",
+  "FDR Uncleared & ASTNC Team",
+  "JGW Team",
+];
+
+
+----------------------------------------------------------------
+2. ADMIN EMAILS
+----------------------------------------------------------------
+const ADMIN_EMAILS = [
+  "neelkant.sharma@prth.com",
+  "shomik.dasgupta@prth.com",
+  "atish.mukherjee@prth.com",
+];
+
+
+----------------------------------------------------------------
+3. KRA EMAIL CC RULES  (FDR CBP Team only)
+----------------------------------------------------------------
+const KRA_EMAIL_CC_RULES = [
+  {
+    team: "FDR CBP Team",
+    lead: "Shubham Sharma",
+    cc: [
+      "shomik.dasgupta@prth.com",
+      "atish.mukherjee@prth.com",
+      "neelkant.sharma@prth.com",
+      "shubham.sharma@prth.com",
+    ],
+  },
+];
+
+
+----------------------------------------------------------------
+4. AGENT RENAMES  (canonical name corrections for FDR teams)
+----------------------------------------------------------------
+const AGENT_RENAMES = {
+  "FDR CBP Team||Janmeet Kour":  "Janmeet Kaur",
+  "FDR CBP Team||Yasmeen Sayad": "Yasmeen Sayed",
+  "FDR CBP Team||Shardha Soni":  "Shradha Soni",
+  // (JGW renames omitted here)
+};
+
+
+----------------------------------------------------------------
+5. AGENT PROFILES — FDR CBP Team
+   Format: [Team, Name, EmpID, Email, Designation, Process, ReportingLead]
+----------------------------------------------------------------
+["FDR CBP Team", "Tarun Arora",             "914",  "tarun.t1@prth.com",          "Analyst PSE - FDR",           "CBP/Webpay", "Shubham Sharma"],
+["FDR CBP Team", "Yasmeen Sayed",           "1023", "yasmeen.sayed@prth.com",     "Analyst PSE - FDR",           "CBP/Webpay", "Shubham Sharma"],
+["FDR CBP Team", "Janmeet Kaur",            "988",  "janmeet.kour@prth.com",      "Analyst PSE - FDR",           "CBP/Webpay", "Shubham Sharma"],
+["FDR CBP Team", "Chirag Verma",            "976",  "chirag.verma@prth.com",      "Analyst PSE - FDR",           "CBP/Webpay", "Shubham Sharma"],
+["FDR CBP Team", "Shobha Jarora",           "1020", "shobha.s@prth.com",          "Analyst PSE - FDR",           "CBP/Webpay", "Shubham Sharma"],
+["FDR CBP Team", "Vanshika Bhardwaj",       "1007", "vanshika.bhardwaj@prth.com", "Associate Analyst PSE - FDR", "CBP/Webpay", "Shubham Sharma"],
+["FDR CBP Team", "Annie John",              "901",  "annie.john@prth.com",        "Analyst PSE - FDR",           "CBP/Webpay", "Shubham Sharma"],
+["FDR CBP Team", "Keshav Sharma",           "986",  "keshav.sharma@prth.com",     "Analyst PSE - FDR",           "CBP/Webpay", "Onkar Sharma"],
+["FDR CBP Team", "Pardeep Kumar",           "874",  "pardeep.p@prth.com",         "Analyst PSE - FDR",           "CBP/Webpay", "Onkar Sharma"],
+["FDR CBP Team", "Damanpreet Kaur",         "913",  "damanpreet.kaur@prth.com",   "Analyst PSE - FDR",           "CBP/Webpay", "Onkar Sharma"],
+["FDR CBP Team", "Manthan Takmardan",       "990",  "manthan.m@prth.com",         "Analyst PSE - FDR",           "CBP/Webpay", "Onkar Sharma"],
+["FDR CBP Team", "Satvir Singh",            "915",  "satvir.singh@prth.com",      "Analyst PSE - FDR",           "CBP/Webpay", "Onkar Sharma"],
+["FDR CBP Team", "Tamanna Farjin",          "991",  "tamanna.farjin@prth.com",    "Analyst PSE - FDR",           "CBP/Webpay", "Onkar Sharma"],
+["FDR CBP Team", "Kanika Sharma",           "1032", "kanika.sharma@prth.com",     "Analyst PSE - FDR",           "CBP/Webpay", "Onkar Sharma"],
+["FDR CBP Team", "Shubham Sharma (Team Lead)", "270","shubham.sharma@prth.com",   "Team Lead PSE - FDR",         "Team Lead",  ""],
+["FDR CBP Team", "Onkar Sharma (Team Lead)",   "355","onkar.sharma@prth.com",     "Team Lead PSE - FDR",         "Team Lead",  ""],
+["FDR CBP Team", "Himanshi Thapliyal",      "1029", "himanshi.h@prth.com",        "Analyst PSE - FDR",           "Inbound",    ""],
+["FDR CBP Team", "Shradha Soni",            "1006", "shradha.soni@prth.com",      "Analyst PSE - FDR",           "Inbound",    ""],
+
+
+----------------------------------------------------------------
+6. AGENT PROFILES — FDR Uncleared & ASTNC Team
+   Format: [Team, Name, EmpID, Email, Designation, Process]
+----------------------------------------------------------------
+["FDR Uncleared & ASTNC Team", "Abhimanyu Gupta",          "909",  "abhimanyu.gupta@prth.com",    "Analyst PSE - FDR", "Uncleared Payment"],
+["FDR Uncleared & ASTNC Team", "Abhinandan Thakur",        "908",  "abhinandan.thakur@prth.com",  "Analyst PSE - FDR", "Uncleared Payment"],
+["FDR Uncleared & ASTNC Team", "Jessika Gandhi",           "1000", "jessika.gandhi@prth.com",     "Analyst PSE - FDR", "Uncleared Payment"],
+["FDR Uncleared & ASTNC Team", "Rachel Samson",            "891",  "rachel.samson@prth.com",      "Analyst PSE - FDR", "Uncleared Payment"],
+["FDR Uncleared & ASTNC Team", "Varshit Nehraik",          "892",  "varshit.nehraik@prth.com",    "Analyst PSE - FDR", "Uncleared Payment"],
+["FDR Uncleared & ASTNC Team", "Rashi Gurung",             "1005", "rashi.gurung@prth.com",       "Analyst PSE - FDR", "ASTNC"],
+["FDR Uncleared & ASTNC Team", "Sandeep Rawat",            "882",  "sandeep.rawat@prth.com",      "Analyst PSE - FDR", "ASTNC"],
+["FDR Uncleared & ASTNC Team", "Laxman Bisht",             "884",  "laxman.bisht@prth.com",       "Analyst PSE - FDR", "ASTNC"],
+["FDR Uncleared & ASTNC Team", "Aarchi Madaan",            "1001", "aarchi.a@prth.com",           "Analyst PSE - FDR", "STIP Review"],
+["FDR Uncleared & ASTNC Team", "Ankit Chauhan",            "989",  "ankit.chauhan@prth.com",      "Analyst PSE - FDR", "STIP Review"],
+["FDR Uncleared & ASTNC Team", "Tushar Sharma",            "999",  "tushar.sharma@prth.com",      "Analyst PSE - FDR", "STIP Review"],
+["FDR Uncleared & ASTNC Team", "Vikas Chauhan (Team Lead)","357",  "vikas.chauhan@prth.com",      "Team Lead PSE - FDR","Team Lead"],
+
+
+----------------------------------------------------------------
+7. TEAM_CONFIGS — FDR CBP Team
+   agents[] list (sorted) + tasks[] with standard volumes
+----------------------------------------------------------------
+"FDR CBP Team": {
+  agents: [
+    "Annie John",
+    "Chirag Verma",
+    "Damanpreet Kaur",
+    "Himanshi Thapliyal",
+    "Janmeet Kaur",
+    "Kanika Sharma",
+    "Keshav Sharma",
+    "Manthan Takmardan",
+    "Onkar Sharma (Team Lead)",
+    "Pardeep Kumar",
+    "Satvir Singh",
+    "Shobha Jarora",
+    "Shradha Soni",
+    "Shubham Sharma (Team Lead)",
+    "Tamanna Farjin",
+    "Tarun Arora",
+    "Vanshika Bhardwaj",
+    "Yasmeen Sayed",
+  ],
+  tasks: [
+    ["Task 1",  "FDR - Check By Phone",        10],
+    ["Task 2",  "FDR - Web Pays",               4],
+    ["Task 3",  "FDR - Calls Audit",            8],
+    ["Task 4",  "FDR- WebPay Audit",            4],
+    ["Task 5",  "FDR-CBP Reporting",            5],
+    ["Task 6",  "FDR - CBP Downtime",           1],
+    ["Task 7",  "FDR - Inbound",                5],
+    ["Task 8",  "FDR - Funds Shortage Cases",   8],
+    ["Task 9",  "FDR- Update To Resolve",      15],
+    ["Task 10", "Office Hours",                 1],
+    ["Task 11", "Other Value added Tasks",      1],
+  ],
+},
+
+
+----------------------------------------------------------------
+8. TEAM_CONFIGS — FDR Uncleared & ASTNC Team
+   agents[] list + tasks[] with standard volumes
+----------------------------------------------------------------
+"FDR Uncleared & ASTNC Team": {
+  agents: [
+    "Aarchi Madaan",
+    "Abhimanyu Gupta",
+    "Abhinandan Thakur",
+    "Ankit Chauhan",
+    "Jessika Gandhi",
+    "Laxman Bisht",
+    "Rachel Samson",
+    "Rashi Gurung",
+    "Sandeep Rawat",
+    "Tushar Sharma",
+    "Varshit Nehraik",
+    "Vikas Chauhan (Team Lead)",
+  ],
+  tasks: [
+    ["Task 1",  "FDR - Check By Phone",          10],
+    ["Task 2",  "FDR - Web Pays",                 3],
+    ["Task 3",  "FDR-CBP Reporting",              5],
+    ["Task 4",  "FDR - CBP Downtime",             1],
+    ["Task 5",  "FDR - Uncleared Payments",      55],
+    ["Task 6",  "FDR - Uncleared Reporting",      5],
+    ["Task 7",  "FDR - Uncleared Downtime",       1],
+    ["Task 8",  "FDR - ASTNC Cases",             85],
+    ["Task 9",  "FDR - ASTNC Reporting",          5],
+    ["Task 10", "FDR - ASTNC Downtime",           1],
+    ["Task 11", "FDR - STIP Cases",              85],
+    ["Task 12", "FDR - STIP Reporting",           5],
+    ["Task 13", "FDR - STIP Downtime",            1],
+    ["Task 14", "FDR - UTR Cases",               15],
+    ["Task 15", "FDR - UTR Reporting",            2],
+    ["Task 16", "FDR - UTR Downtime",             1],
+    ["Task 17", "FDR - SV Cases",               11],
+    ["Task 18", "FDR - SV Reporting",             3],
+    ["Task 19", "FDR - SV Downtime",              1],
+    ["Task 20", "FDR - Funds Shortage Cases",     8],
+    ["Task 21", "FDR-Undelivered Checks",        15],
+    ["Task 22", "FDR - Calls/Case Audit",         6],
+    ["Task 23", "FDR- WebPay/Case Email Audit",   3],
+    ["Task 24", "Office Hours",                   1],
+    ["Task 25", "Other Value added Tasks",        1],
+  ],
+},
+
+
+----------------------------------------------------------------
+9. KRA CONFIGURATION (shared across all FDR teams)
+----------------------------------------------------------------
+const KRA_CONFIG = {
+  targetPerDay: 45,              // daily production target
+  qualityDefault: 1,             // default quality score
+  plannedShrinkageDefault: 0,
+  unplannedShrinkageDefault: 0,
+  weights: {
+    cbp:             1,          // FDR - Check By Phone (per case)
+    webpay:          0.4,        // FDR - Web Pays
+    uncleared:       5.5,        // FDR - Uncleared Payments
+    astnc:           8.5,        // FDR - ASTNC Cases
+    updateToResolve: 1.5,        // FDR - Update To Resolve
+    settlementVariance: 1.1,     // FDR - SV Cases
+    inbound:         0.4,        // FDR - Inbound
+    stip:            8.5,        // FDR - STIP Cases
+    undelivered:     1.5,        // FDR - Undelivered Checks
+    fundsShortage:   0.7,        // FDR - Funds Shortage Cases
+    cbpCallAudit:    0.8,        // FDR - Calls Audit / Calls/Case Audit
+    cbpWebpayAudit:  0.4,        // FDR - WebPay Audit / WebPay/Case Email Audit
+    caseAudit:       0.6,        // (generic case audit)
+    emailAudit:      0.3,        // (generic email audit)
+    reporting:       0.5,        // all *Reporting tasks
+    downtime:        6,          // all *Downtime tasks (per hour)
+    other:           0.5,        // Office Hours / Other Value Added Tasks
+  },
+};
+
+KRA formula (per agent per month):
+  Production  = SUM(volume × weight) / workingDays / targetPerDay   → 60 % weight
+  Quality     = qualityScore / 5                                      → 30 % weight
+  Shrinkage   = 1 − (plannedShrinkage + unplannedShrinkage)          → 10 % weight
+  Overall     = Production×0.6 + Quality×0.3 + Shrinkage×0.1
+  Rating      = 1 (< 60 %) | 2 (60–69 %) | 3 (70–79 %) | 4 (80–89 %) | 5 (≥ 90 %)
+  Target Met  = Overall ≥ 0.80
+
+
+----------------------------------------------------------------
+10. TASK SECTION GROUPS — Index.html (used for UI colour coding)
+----------------------------------------------------------------
+
+// FDR CBP Team task sections
+const FDR_CBP_SECTIONS = [
+  { min: 1, max: 2,  label: "CBP / Webpay Tasks",        color: "#064e3b" },
+  { min: 5, max: 6,  label: "CBP Reporting / Downtime",  color: "#0f766e" },
+  // Tasks 3-4 = Audits; Tasks 7-9 = Additional FDR tasks; 10-11 = Office/VAT
+];
+
+// FDR Uncleared & ASTNC Team task sections
+const UNCLEARED_ASTNC_SECTIONS = [
+  { min: 1,  max: 4,  label: "CBP / Shared Tasks",  color: "#064e3b"  },
+  { min: 5,  max: 7,  label: "Uncleared Tasks",     color: "#0369a1"  },   // implied
+  { min: 8,  max: 10, label: "ASTNC Tasks",         color: "#4c1d95"  },
+  // Tasks 11-13 = STIP; 14-16 = UTR; 17-19 = SV; 20-25 = misc/audit
+];
+
+
+----------------------------------------------------------------
+11. QUICK SUMMARY TABLE
+----------------------------------------------------------------
+Team                          | Agents (excl. leads) | Tasks | Leads
+------------------------------|----------------------|-------|------------------------
+FDR CBP Team                  | 16                   | 11    | Shubham Sharma, Onkar Sharma
+FDR Uncleared & ASTNC Team    | 11                   | 25    | Vikas Chauhan
+JGW Team (for reference)      | 12                   | 13    | Varun Dogra
+
+FDR CBP Team — Reporting to Shubham Sharma (7 agents):
+  Tarun Arora, Yasmeen Sayed, Janmeet Kaur, Chirag Verma,
+  Shobha Jarora, Vanshika Bhardwaj, Annie John
+
+FDR CBP Team — Reporting to Onkar Sharma (7 agents):
+  Keshav Sharma, Pardeep Kumar, Damanpreet Kaur, Manthan Takmardan,
+  Satvir Singh, Tamanna Farjin, Kanika Sharma
+
+FDR CBP Team — Inbound (no direct lead listed, 2 agents):
+  Himanshi Thapliyal, Shradha Soni
+
+FDR Uncleared & ASTNC Team — Process breakdown:
+  Uncleared Payment : Abhimanyu Gupta, Abhinandan Thakur, Jessika Gandhi, Rachel Samson, Varshit Nehraik
+  ASTNC             : Rashi Gurung, Sandeep Rawat, Laxman Bisht
+  STIP Review       : Aarchi Madaan, Ankit Chauhan, Tushar Sharma
