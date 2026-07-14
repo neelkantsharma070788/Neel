@@ -1,0 +1,763 @@
+<style>
+  /* ═══════════════════════════════════════════════════════════
+     JGW CBP Process — Payment Entry CRM
+     Design system: Priority-brand gradient, elevated glass cards
+  ═══════════════════════════════════════════════════════════ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    /* Brand gradient (Priority) */
+    --brand-1: #5b21b6;
+    --brand-2: #6d28d9;
+    --brand-3: #4f46e5;
+    --brand-grad: linear-gradient(120deg, #6d28d9 0%, #4f46e5 55%, #2563eb 100%);
+    --brand-grad-soft: linear-gradient(120deg, #f5f3ff 0%, #eef2ff 100%);
+
+    --accent: #4f46e5;
+    --accent-dark: #4338ca;
+    --accent-light: #eef2ff;
+    --accent-ring: rgba(79,70,229,.18);
+
+    --green: #059669;
+    --green-light: #d1fae5;
+    --red: #dc2626;
+    --red-light: #fee2e2;
+    --amber: #d97706;
+    --amber-light: #fef3c7;
+
+    --ink: #0f172a;
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-400: #94a3b8;
+    --slate-500: #64748b;
+    --slate-600: #475569;
+    --slate-700: #334155;
+
+    /* aliases so existing markup keeps working */
+    --blue: var(--accent);
+    --blue-dark: var(--accent-dark);
+    --blue-light: var(--accent-light);
+    --gray-50: var(--slate-50);
+    --gray-100: var(--slate-100);
+    --gray-200: var(--slate-200);
+    --gray-300: var(--slate-300);
+    --gray-400: var(--slate-400);
+    --gray-500: var(--slate-500);
+    --gray-600: var(--slate-600);
+    --gray-700: var(--slate-700);
+    --gray-900: var(--ink);
+
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-xs: 0 1px 2px rgba(15,23,42,.06);
+    --shadow: 0 1px 3px rgba(15,23,42,.08), 0 1px 2px rgba(15,23,42,.04);
+    --shadow-md: 0 10px 25px -8px rgba(15,23,42,.18), 0 4px 10px -6px rgba(15,23,42,.10);
+    --shadow-lg: 0 22px 48px -14px rgba(79,70,229,.28);
+  }
+
+  body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+    background:
+      radial-gradient(1200px 600px at 100% -10%, rgba(79,70,229,.08), transparent 60%),
+      radial-gradient(1000px 500px at -10% 0%, rgba(37,99,235,.07), transparent 55%),
+      var(--slate-50);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Top bar ──────────────────────────────────────────── */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 24px;
+    background: var(--brand-grad);
+    box-shadow: var(--shadow-md);
+  }
+  .topbar-title { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+  .topbar-title h1 {
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    color: #fff;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0,0,0,.15);
+  }
+  .company-brand {
+    background: rgba(255,255,255,.95);
+    padding: 6px 12px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    box-shadow: var(--shadow-xs);
+  }
+  .priority-logo { height: 34px; width: auto; display: block; }
+
+  .topbar-actions {
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap; justify-content: flex-end;
+  }
+  .topbar-report-stack { position: relative; }
+  .report-button-row { display: flex; gap: 8px; }
+
+  .user-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px;
+    background: rgba(255,255,255,.16);
+    backdrop-filter: blur(6px);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.25);
+    border-radius: 999px;
+    font-size: 13px; font-weight: 600;
+    white-space: nowrap;
+  }
+  .user-chip::before {
+    content: ""; width: 7px; height: 7px; border-radius: 50%;
+    background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,.3);
+  }
+
+  /* topbar buttons get a translucent glass look */
+  .topbar .secondary-action {
+    background: rgba(255,255,255,.14);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.28);
+    backdrop-filter: blur(6px);
+  }
+  .topbar .secondary-action:hover {
+    background: rgba(255,255,255,.26);
+    border-color: rgba(255,255,255,.5);
+  }
+
+  /* ── Buttons ──────────────────────────────────────────── */
+  button, .primary-action, .secondary-action, .small-button {
+    cursor: pointer; border: none;
+    border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; line-height: 1;
+    font-family: inherit;
+    transition: transform .12s, box-shadow .15s, background .15s, border-color .15s, opacity .15s;
+  }
+  button:active { transform: translateY(1px); }
+
+  .primary-action {
+    padding: 10px 20px;
+    background: var(--brand-grad);
+    color: #fff;
+    box-shadow: 0 6px 16px -6px rgba(79,70,229,.6);
+  }
+  .primary-action:hover { box-shadow: var(--shadow-lg); }
+  .primary-action:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; }
+
+  .secondary-action {
+    padding: 9px 16px;
+    background: #fff;
+    color: var(--slate-700);
+    border: 1px solid var(--slate-300);
+    box-shadow: var(--shadow-xs);
+  }
+  .secondary-action:hover { background: var(--slate-50); border-color: var(--slate-400); }
+  .secondary-action:disabled { opacity: .5; cursor: not-allowed; }
+  .secondary-action.active {
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  .small-button {
+    padding: 5px 11px;
+    background: var(--slate-100);
+    color: var(--slate-700);
+    border: 1px solid var(--slate-200);
+    font-size: 12px;
+  }
+  .small-button:hover { background: var(--accent-light); color: var(--accent-dark); border-color: var(--accent); }
+
+  /* ── Layout ───────────────────────────────────────────── */
+  .payment-entry-page { max-width: 1120px; margin: 0 auto; padding: 28px 24px 56px; }
+  .form-layout { display: flex; flex-direction: column; gap: 22px; }
+
+  .form-section {
+    position: relative;
+    background: #fff;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 26px 26px 28px;
+    box-shadow: var(--shadow);
+    transition: box-shadow .2s;
+  }
+  .form-section:hover { box-shadow: var(--shadow-md); }
+  .form-section h2 {
+    font-size: 15px; font-weight: 700; letter-spacing: -.01em;
+    color: var(--ink);
+    margin-bottom: 18px;
+    padding-left: 14px;
+    position: relative;
+  }
+  .form-section h2::before {
+    content: ""; position: absolute; left: 0; top: 1px; bottom: 1px;
+    width: 4px; border-radius: 2px; background: var(--brand-grad);
+  }
+
+  /* ── Field grid ───────────────────────────────────────── */
+  .field-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 16px 20px;
+    align-items: start;
+  }
+  .field-grid label {
+    display: flex; flex-direction: column; gap: 6px;
+    font-size: 12.5px; font-weight: 600; color: var(--slate-600);
+  }
+  .field-grid input:not([type=radio]):not([type=checkbox]):not([type=file]),
+  .field-grid select,
+  .field-grid textarea {
+    padding: 9px 12px;
+    border: 1px solid var(--slate-300);
+    border-radius: var(--radius-sm);
+    font-size: 13.5px; font-family: inherit;
+    color: var(--ink); background: #fff;
+    width: 100%;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .field-grid input:hover, .field-grid select:hover, .field-grid textarea:hover { border-color: var(--slate-400); }
+  .field-grid input:focus, .field-grid select:focus, .field-grid textarea:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-ring);
+  }
+  .field-grid input[readonly] { background: var(--slate-50); color: var(--slate-500); cursor: default; }
+  .field-grid textarea { resize: vertical; min-height: 90px; }
+  .field-grid input[type=file] { font-size: 13px; padding: 7px; background: var(--slate-50); border-radius: var(--radius-sm); }
+
+  .wide { grid-column: span 2; }
+  .extra-wide { grid-column: 1 / -1; }
+
+  .inline-action { display: flex; align-items: flex-end; }
+  .inline-action button { width: 100%; }
+
+  .required > label::after, label.required::after { content: " *"; color: var(--red); font-weight: 700; }
+
+  /* ── Date control ─────────────────────────────────────── */
+  .date-control { display: flex; gap: 6px; align-items: center; }
+  .date-display { flex: 1; min-width: 0; }
+  .date-picker-button {
+    padding: 9px 12px;
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    font-size: 12px; white-space: nowrap;
+  }
+  .date-picker-button:hover { background: #e0e7ff; }
+  .native-date-picker { position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; }
+
+  /* ── Segmented control ────────────────────────────────── */
+  .segmented {
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    display: flex; flex-wrap: wrap; gap: 8px;
+    background: var(--slate-50);
+  }
+  .segmented legend {
+    font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--slate-500);
+    padding: 0 4px; margin-bottom: 8px;
+    float: left; width: 100%;
+  }
+  .segmented label {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-weight: 600; cursor: pointer;
+    padding: 7px 14px;
+    border: 1px solid var(--slate-300); background: #fff;
+    border-radius: 999px; font-size: 13px;
+    transition: all .12s;
+  }
+  .segmented label:has(input:checked) {
+    background: var(--brand-grad); color: #fff; border-color: transparent;
+    box-shadow: 0 4px 12px -4px rgba(79,70,229,.5);
+  }
+  .segmented input[type=radio] { accent-color: var(--accent); }
+  .segmented label:has(input:checked) input { accent-color: #fff; }
+
+  /* ── Form actions ─────────────────────────────────────── */
+  .form-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .form-actions .primary-action { margin-left: auto; }
+
+  .crm-copyright { font-size: 11px; color: var(--slate-400); text-align: right; }
+  .save-status { font-size: 13px; min-height: 20px; text-align: right; font-weight: 600; }
+  .save-status.ok { color: var(--green); }
+  .save-status.err { color: var(--red); }
+
+  .field-error { display: block; font-size: 12px; color: var(--red); min-height: 16px; font-weight: 500; }
+  .field-error.ok { color: var(--green); }
+  .field-error.info { color: var(--slate-500); }
+
+  /* ── Toast ────────────────────────────────────────────── */
+  .toast {
+    position: fixed; bottom: 28px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--ink); color: #fff;
+    padding: 13px 24px; border-radius: 999px;
+    font-size: 13px; font-weight: 600;
+    opacity: 0; pointer-events: none;
+    transition: opacity .22s, transform .22s;
+    z-index: 1000; max-width: 480px; text-align: center;
+    box-shadow: var(--shadow-lg);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.ok { background: linear-gradient(120deg, #059669, #10b981); }
+  .toast.err { background: linear-gradient(120deg, #dc2626, #ef4444); }
+
+  /* ── Panel header ─────────────────────────────────────── */
+  .report-panel h2 { margin-bottom: 18px; }
+  .panel-header {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .panel-header h3 { font-size: 14px; font-weight: 700; color: var(--ink); }
+  .panel-header span { font-size: 13px; color: var(--slate-500); }
+
+  /* ── Dashboard ────────────────────────────────────────── */
+  .dashboard-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 22px;
+  }
+  .dashboard-head h2 { font-size: 22px; font-weight: 800; letter-spacing: -.02em; margin-bottom: 4px; padding-left: 0; }
+  .dashboard-head h2::before { display: none; }
+  .dashboard-kicker {
+    display: inline-block;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+    color: #fff; background: var(--brand-grad);
+    padding: 4px 12px; border-radius: 999px; margin-bottom: 8px;
+    box-shadow: 0 4px 12px -4px rgba(79,70,229,.5);
+  }
+  .dashboard-head p { color: var(--slate-500); font-size: 13px; }
+  .dashboard-controls { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+  .dashboard-controls label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--slate-600); }
+  .dashboard-controls select {
+    padding: 9px 12px; border: 1px solid var(--slate-300);
+    border-radius: var(--radius-sm); font-size: 13px; font-family: inherit;
+  }
+
+  .management-dashboard-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px;
+  }
+  .dashboard-card {
+    background: linear-gradient(180deg, #fff, var(--slate-50));
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow-xs);
+    transition: transform .18s, box-shadow .18s;
+  }
+  .dashboard-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+  .dashboard-card-title {
+    font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--accent); margin-bottom: 14px;
+  }
+  .dashboard-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .dashboard-table th {
+    text-align: left; font-weight: 700; color: var(--slate-400);
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em;
+    padding: 5px 6px; border-bottom: 2px solid var(--slate-200);
+  }
+  .dashboard-table td { padding: 7px 6px; border-bottom: 1px solid var(--slate-100); color: var(--slate-700); }
+  .dashboard-table td:last-child { text-align: right; font-weight: 700; color: var(--ink); }
+  .dashboard-table tr:last-child td { border-bottom: none; }
+
+  .dashboard-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; font-size: 13px; }
+  .dashboard-bar-label { flex: 0 0 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--slate-700); font-weight: 500; }
+  .dashboard-bar-track { flex: 1; height: 12px; background: var(--slate-200); border-radius: 999px; overflow: hidden; }
+  .dashboard-bar-fill { height: 100%; background: var(--brand-grad); border-radius: 999px; transition: width .5s ease; }
+  .dashboard-bar-count { flex: 0 0 32px; text-align: right; font-weight: 700; color: var(--ink); font-size: 12px; }
+
+  .dashboard-stat-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 8px 0; border-bottom: 1px solid var(--slate-100); font-size: 13px;
+  }
+  .dashboard-stat-row:last-child { border-bottom: none; }
+  .dashboard-stat-label { color: var(--slate-600); font-weight: 500; }
+  .dashboard-stat-value { font-weight: 800; color: var(--ink); }
+  .dashboard-stat-value.highlight {
+    color: var(--accent); font-size: 20px;
+    background: var(--accent-light); padding: 2px 10px; border-radius: 8px;
+  }
+
+  /* ── Work summary panel ───────────────────────────────── */
+  .work-summary-panel {
+    display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 18px;
+    padding: 18px; border-radius: var(--radius);
+    background: var(--brand-grad-soft);
+    border: 1px solid var(--slate-200);
+  }
+  .work-summary-card {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 16px 20px; background: #fff;
+    border: 1px solid var(--slate-200); border-radius: var(--radius-sm);
+    min-width: 120px; font-size: 12px; font-weight: 600; color: var(--slate-500);
+    box-shadow: var(--shadow-xs);
+    text-transform: uppercase; letter-spacing: .03em;
+  }
+  .work-summary-card strong { font-size: 26px; font-weight: 800; color: var(--ink); letter-spacing: -.02em; }
+
+  .work-wheel-card { flex-direction: row; align-items: center; gap: 14px; text-transform: none; }
+  .work-wheel {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: conic-gradient(var(--accent) 0%, var(--slate-200) 0%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; color: var(--slate-700);
+    flex-shrink: 0; position: relative;
+  }
+  .work-wheel::after {
+    content: ""; position: absolute; inset: 8px; background: #fff; border-radius: 50%;
+  }
+  .work-wheel span { position: relative; z-index: 1; }
+
+  .work-agent-breakdown { width: 100%; display: flex; flex-wrap: wrap; gap: 7px; margin-top: 6px; }
+  .agent-chip {
+    padding: 4px 12px; background: #fff; color: var(--accent-dark);
+    border: 1px solid var(--accent-light);
+    border-radius: 999px; font-size: 12px; font-weight: 600;
+    box-shadow: var(--shadow-xs);
+  }
+
+  /* ── Queue source tabs ────────────────────────────────── */
+  .queue-source-tabs {
+    display: inline-flex; gap: 4px; margin-bottom: 16px;
+    padding: 4px; background: var(--slate-100); border-radius: 999px;
+  }
+  .queue-source-tabs .secondary-action {
+    border: none; background: transparent; box-shadow: none; border-radius: 999px;
+    color: var(--slate-600);
+  }
+  .queue-source-tabs .secondary-action.active {
+    background: #fff; color: var(--accent-dark);
+    box-shadow: var(--shadow); border: none;
+  }
+
+  /* ── Assign work ──────────────────────────────────────── */
+  .assign-work-actions { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+  .work-selection-tools { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--slate-500); flex-wrap: wrap; }
+
+  /* ── Bulk review table ────────────────────────────────── */
+  .bulk-client-review { margin-top: 18px; }
+  .bulk-review-table-shell {
+    overflow-x: auto; border: 1px solid var(--slate-200);
+    border-radius: var(--radius); box-shadow: var(--shadow-xs);
+  }
+  .bulk-review-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 620px; }
+  .bulk-review-table th {
+    background: var(--slate-50); text-align: left; font-weight: 700;
+    color: var(--slate-500); font-size: 11px; text-transform: uppercase; letter-spacing: .03em;
+    padding: 11px 14px; border-bottom: 2px solid var(--slate-200); white-space: nowrap;
+    position: sticky; top: 0;
+  }
+  .bulk-review-table td { padding: 10px 14px; border-bottom: 1px solid var(--slate-100); color: var(--slate-700); vertical-align: top; }
+  .bulk-review-table tr:last-child td { border-bottom: none; }
+  .bulk-review-table tbody tr { transition: background .12s; }
+  .bulk-review-table tr:hover td { background: var(--accent-light); }
+  .bulk-review-table tr.selected td { background: var(--accent-light); }
+  .bulk-review-table small { color: var(--slate-400); }
+
+  .status-badge {
+    display: inline-block; padding: 3px 11px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+  }
+  .status-badge.open { background: var(--amber-light); color: var(--amber); }
+  .status-badge.inprogress { background: var(--accent-light); color: var(--accent-dark); }
+  .status-badge.completed { background: var(--green-light); color: var(--green); }
+
+  /* ── Bulk paste control ───────────────────────────────── */
+  .bulk-paste-control {
+    border: 1px solid var(--slate-300); border-radius: var(--radius-sm);
+    overflow: hidden; grid-column: 1 / -1;
+  }
+  .bulk-paste-title {
+    display: block; padding: 8px 12px;
+    background: var(--slate-50); border-bottom: 1px solid var(--slate-200);
+    font-size: 11.5px; font-weight: 700; color: var(--slate-500);
+    text-transform: uppercase; letter-spacing: .03em;
+  }
+  .bulk-preview-scroll {
+    min-height: 84px; max-height: 170px; overflow-y: auto;
+    padding: 10px 12px; font-size: 13px;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    white-space: pre-wrap; word-break: break-all;
+    outline: none; background: #fff; color: var(--ink);
+  }
+  .bulk-preview-scroll:focus { box-shadow: inset 0 0 0 2px var(--accent-ring); }
+
+  .dm-multiple-panel {
+    grid-column: 1 / -1;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 14px 20px; align-items: start;
+  }
+  .dm-multiple-panel > .bulk-paste-control,
+  .dm-multiple-panel > .dm-schedule-list,
+  .dm-multiple-panel > .field-error { grid-column: 1 / -1; }
+
+  .dm-schedule-list { display: flex; flex-wrap: wrap; gap: 12px; }
+  .dm-schedule-item {
+    background: linear-gradient(180deg, #fff, var(--slate-50));
+    border: 1px solid var(--slate-200); border-radius: var(--radius-sm);
+    padding: 14px 16px; min-width: 210px; font-size: 13px;
+    box-shadow: var(--shadow-xs); display: flex; flex-direction: column; gap: 8px;
+  }
+  .dm-schedule-item label { display: flex; flex-direction: column; gap: 4px; color: var(--slate-600); font-weight: 600; font-size: 12px; }
+  .dm-schedule-item input { padding: 7px 9px; border: 1px solid var(--slate-300); border-radius: 6px; font-size: 13px; width: 100%; }
+  .dm-schedule-item input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+  .dm-schedule-id-label {
+    font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--accent); margin-bottom: 2px;
+  }
+
+  .bulk-outcome-control { grid-column: span 2; }
+
+  /* ── Outcome actions ──────────────────────────────────── */
+  .outcome-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .outcome-button.active {
+    background: var(--brand-grad); color: #fff; border-color: transparent;
+    box-shadow: 0 4px 12px -4px rgba(79,70,229,.5);
+  }
+
+  /* ── Import progress ──────────────────────────────────── */
+  .import-progress {
+    padding: 16px; background: var(--brand-grad-soft);
+    border: 1px solid var(--slate-200); border-radius: var(--radius-sm);
+  }
+  .import-progress-meta { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+  .import-progress-track { height: 10px; background: var(--slate-200); border-radius: 999px; overflow: hidden; }
+  .import-progress-bar { height: 100%; background: var(--brand-grad); border-radius: 999px; width: 0%; transition: width .3s; }
+
+  /* ── Reports menu ─────────────────────────────────────── */
+  .reports-menu { position: relative; }
+  .reports-menu-list {
+    position: absolute; top: calc(100% + 8px); right: 0;
+    background: #fff; border: 1px solid var(--slate-200);
+    border-radius: var(--radius); box-shadow: var(--shadow-md);
+    min-width: 220px; z-index: 200; overflow: hidden;
+    padding: 6px;
+  }
+  .reports-menu-list button {
+    display: block; width: 100%; text-align: left;
+    padding: 10px 14px; background: none; border: none;
+    border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+    color: var(--slate-700); cursor: pointer;
+  }
+  .reports-menu-list button:hover { background: var(--accent-light); color: var(--accent-dark); }
+
+  .checking-account-action { align-items: flex-start; }
+
+  [hidden] { display: none !important; }
+
+  /* ── Responsive ───────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .topbar { flex-wrap: wrap; padding: 12px 16px; }
+    .topbar-title h1 { font-size: 15px; }
+    .payment-entry-page { padding: 20px 14px 40px; }
+    .form-section { padding: 20px 16px; }
+    .field-grid { grid-template-columns: 1fr; }
+    .wide, .extra-wide, .bulk-outcome-control { grid-column: 1; }
+    .dm-multiple-panel { grid-template-columns: 1fr; }
+    .management-dashboard-grid { grid-template-columns: 1fr; }
+  }
+  body { padding: 0; }
+  .preview-note {
+    max-width: 1120px; margin: 20px auto 0; padding: 0 24px;
+    font-size: 13px; color: var(--slate-500);
+  }
+  .preview-note strong { color: var(--accent-dark); }
+</style>
+
+<div class="payment-entry-page">
+  <p class="preview-note"><strong>Design preview</strong> — this is the redesigned <code>Styles.html</code> rendered with sample content. All interactivity comes from <code>App.html</code> in the real app.</p>
+</div>
+
+<header class="topbar">
+  <div class="topbar-title">
+    <div class="company-brand">
+      <img class="priority-logo" src="https://cdn.prod.website-files.com/669d73f3127737766156fbe8/669e8ece024baad22dcf689e_Priority_Primary%20Logo_Gradient%2BLight.png" alt="Priority" />
+    </div>
+    <h1>JGW CBP Process</h1>
+  </div>
+  <div class="topbar-actions">
+    <span class="user-chip">Neelkant Sharma</span>
+    <button class="secondary-action" type="button">My Work Queue</button>
+    <div class="reports-menu"><button class="secondary-action" type="button">Reports</button></div>
+  </div>
+</header>
+
+<main class="payment-entry-page">
+  <div class="form-layout">
+
+    <!-- Dashboard sample -->
+    <section class="form-section report-panel">
+      <div class="dashboard-head">
+        <div>
+          <span class="dashboard-kicker">Dashboard</span>
+          <h2>JGW CBP Management Dashboard</h2>
+          <p>Live CRM operating view · As of Jul 14, 2026 10:24 AM</p>
+        </div>
+        <div class="dashboard-controls">
+          <label>CBP Due Month
+            <select><option>Jul 2026</option><option>Aug 2026</option></select>
+          </label>
+          <button class="secondary-action" type="button">Refresh</button>
+        </div>
+      </div>
+      <div class="management-dashboard-grid">
+        <div class="dashboard-card">
+          <div class="dashboard-card-title">Completed Today by Agent</div>
+          <table class="dashboard-table">
+            <thead><tr><th>Agent</th><th>Count</th></tr></thead>
+            <tbody>
+              <tr><td>Rohit Chandel</td><td>14</td></tr>
+              <tr><td>Sachin S</td><td>11</td></tr>
+              <tr><td>Ansh Saxena</td><td>9</td></tr>
+              <tr><td>Naman Negi</td><td>6</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="dashboard-card">
+          <div class="dashboard-card-title">Payments Due by Creditor</div>
+          <div class="dashboard-bar-row"><span class="dashboard-bar-label">Midland Credit</span><div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="width:100%"></div></div><span class="dashboard-bar-count">42</span></div>
+          <div class="dashboard-bar-row"><span class="dashboard-bar-label">Portfolio Recovery</span><div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="width:74%"></div></div><span class="dashboard-bar-count">31</span></div>
+          <div class="dashboard-bar-row"><span class="dashboard-bar-label">LVNV Funding</span><div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="width:52%"></div></div><span class="dashboard-bar-count">22</span></div>
+          <div class="dashboard-bar-row"><span class="dashboard-bar-label">Cavalry SPV</span><div class="dashboard-bar-track"><div class="dashboard-bar-fill" style="width:31%"></div></div><span class="dashboard-bar-count">13</span></div>
+        </div>
+        <div class="dashboard-card">
+          <div class="dashboard-card-title">Month to Date</div>
+          <div class="dashboard-stat-row"><span class="dashboard-stat-label">Payments set up</span><span class="dashboard-stat-value highlight">328</span></div>
+          <div class="dashboard-stat-row"><span class="dashboard-stat-label">CBP mode</span><span class="dashboard-stat-value">271</span></div>
+          <div class="dashboard-stat-row"><span class="dashboard-stat-label">Web mode</span><span class="dashboard-stat-value">57</span></div>
+          <div class="dashboard-stat-row"><span class="dashboard-stat-label">Follow-ups due today</span><span class="dashboard-stat-value">19</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Work summary sample -->
+    <section class="form-section report-panel">
+      <h2>My Work Queue</h2>
+      <div class="queue-source-tabs">
+        <button class="secondary-action active" type="button">Follow up cases</button>
+        <button class="secondary-action" type="button">New cases</button>
+      </div>
+      <div class="work-summary-panel">
+        <div class="work-summary-card work-wheel-card">
+          <div class="work-wheel" style="background:conic-gradient(var(--accent) 68%, var(--slate-200) 0%)"><span>68%</span></div>
+          <div><strong style="font-size:15px;">Today's Progress</strong><div style="font-size:12px;color:var(--slate-500);">34 of 50 cleared</div></div>
+        </div>
+        <div class="work-summary-card"><span>Assigned Follow-up</span><strong>38</strong></div>
+        <div class="work-summary-card"><span>Assigned New</span><strong>12</strong></div>
+        <div class="work-summary-card"><span>Same Day</span><strong>7</strong></div>
+        <div class="work-summary-card"><span>Completed</span><strong>34</strong></div>
+        <div class="work-agent-breakdown">
+          <span class="agent-chip">Midland Credit: 12</span>
+          <span class="agent-chip">Portfolio Recovery: 9</span>
+          <span class="agent-chip">LVNV Funding: 6</span>
+        </div>
+      </div>
+      <div class="bulk-client-review">
+        <div class="panel-header"><h3>Assigned Cases</h3><span>3 case(s)</span></div>
+        <div class="bulk-review-table-shell">
+          <table class="bulk-review-table work-table">
+            <thead><tr><th>Client</th><th>Schedule</th><th>Due</th><th>Amount</th><th>Creditor</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody>
+              <tr><td>James Whitfield<br><small>CL-88213</small></td><td>SCH-4471</td><td>07/14/2026</td><td>$1,250.00</td><td>Midland Credit</td><td><span class="status-badge inprogress">In Progress</span></td><td><button class="small-button">Fill Form</button> <button class="small-button">Complete</button></td></tr>
+              <tr><td>Maria Gonzalez<br><small>CL-90117</small></td><td>SCH-4482</td><td>07/15/2026</td><td>$860.50</td><td>LVNV Funding</td><td><span class="status-badge open">Open</span></td><td><button class="small-button">Fill Form</button> <button class="small-button">Start</button></td></tr>
+              <tr><td>Robert Chen<br><small>CL-77340</small></td><td>SCH-4490</td><td>07/13/2026</td><td>$2,100.00</td><td>Portfolio Recovery</td><td><span class="status-badge completed">Completed</span></td><td><span style="color:var(--green);font-size:12px;">&#10003; Done</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Client details -->
+    <section class="form-section">
+      <h2>Client Details</h2>
+      <div class="field-grid">
+        <label class="wide">Client ID<input value="CL-88213" /></label>
+        <span class="field-error info extra-wide">Client matched from reference data.</span>
+        <label class="required">Subscriber<select><option>JGW</option><option>NSL</option></select></label>
+        <label class="required">Client ID<input value="CL-88213" /></label>
+        <label class="required wide">Client Full Name<input value="James Whitfield" /></label>
+      </div>
+    </section>
+
+    <!-- CRM Schedule ID -->
+    <section class="form-section">
+      <h2>CRM Schedule ID</h2>
+      <div class="field-grid">
+        <div class="dm-multiple-panel">
+          <label class="required">How many CRM Payment Schedule IDs?<input value="2" readonly /></label>
+          <div class="inline-action checking-account-action"><button class="secondary-action" type="button">Checking Account</button></div>
+          <div class="bulk-paste-control">
+            <span class="bulk-paste-title">Paste All CRM Payment Schedule IDs</span>
+            <div class="bulk-preview-scroll">SCH-4471
+SCH-4472</div>
+          </div>
+          <div class="inline-action"><button class="secondary-action" type="button">Apply IDs</button></div>
+          <div class="dm-schedule-list">
+            <div class="dm-schedule-item">
+              <div class="dm-schedule-id-label">Schedule 1</div>
+              <label>ID<input value="SCH-4471" readonly /></label>
+              <label>Amount ($)<input value="1250.00" /></label>
+              <label>Due Date<input value="07/14/2026" readonly /></label>
+            </div>
+            <div class="dm-schedule-item">
+              <div class="dm-schedule-id-label">Schedule 2</div>
+              <label>ID<input value="SCH-4472" readonly /></label>
+              <label>Amount ($)<input value="980.00" /></label>
+              <label>Due Date<input value="08/14/2026" readonly /></label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Receipt & Notes -->
+    <section class="form-section">
+      <h2>Receipt &amp; Notes</h2>
+      <div class="field-grid">
+        <label class="required">Agent Name<input value="Neelkant Sharma" readonly /></label>
+        <label>CFT Team Payment Worked date<input value="07/14/2026" readonly /></label>
+        <fieldset class="segmented required">
+          <legend>Payment Setup Mode</legend>
+          <label><input type="radio" name="m" checked /><span>CBP</span></label>
+          <label><input type="radio" name="m" /><span>Web</span></label>
+        </fieldset>
+        <label class="required">Ring Central Master ID<input value="RC-55210" /></label>
+        <div class="extra-wide outcome-actions">
+          <button class="secondary-action" type="button">Regenerate Comments</button>
+          <button class="secondary-action outcome-button active" type="button">Escalation/Follow up Needed</button>
+          <button class="secondary-action outcome-button" type="button">Escalation/No Follow up Needed</button>
+        </div>
+        <label class="required extra-wide">Comments<textarea rows="4">Creditor: Midland Credit
+Account #: 4471-XX
+Schedule 1: ID SCH-4471 | Amt $1250 | Due 07/14/2026</textarea></label>
+        <fieldset class="segmented required">
+          <legend>Is Follow-up Required</legend>
+          <label><input type="radio" name="f" checked /><span>Yes</span></label>
+          <label><input type="radio" name="f" /><span>No</span></label>
+        </fieldset>
+      </div>
+    </section>
+
+    <div class="form-actions">
+      <button class="secondary-action" type="button">Export CSV</button>
+      <button class="secondary-action" type="button">Clear</button>
+      <button class="primary-action" type="button">Save Payment Entry</button>
+    </div>
+    <p class="crm-copyright">© 2026 Priority Technology Holdings, Inc. All rights reserved.</p>
+  </div>
+</main>
